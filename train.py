@@ -227,10 +227,13 @@ def main():
             tps = (tokens_seen - tok_last) / max(dt, 1e-6)
             t_last, tok_last = time.time(), tokens_seen
             mfu = fpt * tps / (pf * world) * 100
+            vram = (torch.cuda.max_memory_allocated() / 1e9
+                    if device != "cpu" else 0.0)
             rem = (tc.total_tokens - tokens_seen) / max(tps, 1) / 3600
             log(f"adım {step:>6,}/{total_steps:,} | loss {loss.item():.4f} | "
                 f"lr x{lr_mult:.3f} | |g| {gnorm:.2f} | {tps:,.0f} tok/s | "
-                f"MFU ~%{mfu:.0f} | {tokens_seen/1e9:.3f}B | kalan ~{rem:.0f}sa")
+                f"MFU ~%{mfu:.0f} | VRAM {vram:.1f}G | {tokens_seen/1e9:.3f}B | "
+                f"kalan ~{rem:.0f}sa")
 
         if val_ds is not None and step > 0 and step % tc.eval_every == 0:
             log(f"  >> val loss {evaluate(val_ds, tc.eval_iters):.4f}")
@@ -267,7 +270,16 @@ def main():
         el = time.time() - t0
         tps = (tokens_seen - (start_step * tokens_per_step)) / el
         print("\n" + "=" * 64)
+        total_vram = torch.cuda.get_device_properties(0).total_memory / 1e9
+        peak = torch.cuda.max_memory_allocated() / 1e9
+        reserved = torch.cuda.max_memory_reserved() / 1e9
         print(f"ÖLÇÜM: {gpu_name} x{world}")
+        print(f"  VRAM: {peak:.1f}G kullanılan / {reserved:.1f}G ayrılan / "
+              f"{total_vram:.1f}G kart")
+        if reserved > total_vram * 0.92:
+            print(f"  ⚠️  KARTA SIĞMIYOR -> Windows fazlasını sistem RAM'ine")
+            print(f"     taşıyor (sysmem fallback). PCIe üzerinden çalışıyor,")
+            print(f"     MFU bu yüzden düşük. --micro_bs DÜŞÜR.")
         print(f"  {tps:,.0f} token/saniye | MFU ~%{fpt*tps/(pf*world)*100:.0f}")
         print(f"  saatte {tps*3600/1e6:,.0f}M token")
         print("=" * 64)
