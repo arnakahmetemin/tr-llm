@@ -189,9 +189,16 @@ def main():
     if os.path.exists(prog_path) and os.path.exists(args.out):
         p = json.load(open(prog_path))
         docs_done, tokens_done = p["docs"], p["tokens"]
-        # dosyayı bilinen son sağlam noktaya kırp (yarım yazılmış kuyruğu at)
-        with open(args.out, "r+b") as f:
-            f.truncate(tokens_done * 2)
+        on_disk = os.path.getsize(args.out) // 2
+        if on_disk < tokens_done:
+            # progress dosyanın önünde: elektrik kesintisi ya da dış müdahale
+            # (ör. val kesme). ASLA truncate ile şişirme -- sahte token üretir.
+            print(f"[uyarı] progress {tokens_done:,} token diyor ama dosyada "
+                  f"{on_disk:,} var -> dosyaya güveniliyor")
+            tokens_done = on_disk
+        else:
+            with open(args.out, "r+b") as f:
+                f.truncate(tokens_done * 2)   # yarım yazılmış kuyruğu at
         print(f"[devam] {docs_done:,} belge / {tokens_done/1e9:.3f}B token atlanıyor")
 
     if tokens_done >= target:
@@ -254,7 +261,7 @@ def main():
                     print(f"  {tokens/1e9:.3f}B / {target/1e9:.1f}B token | "
                           f"{docs:,} belge ({skipped:,} elendi) | "
                           f"{rate/1e6:.2f}M tok/s | ETA {eta:.1f} sa", flush=True)
-                    f.flush()
+                    f.flush(); os.fsync(f.fileno())   # gerçekten diske in
                     json.dump({"docs": docs, "tokens": tokens}, open(prog_path, "w"))
                 if tokens >= target:
                     print("[hedef doldu]")
