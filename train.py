@@ -21,7 +21,7 @@ from data import BinDataset, parse_mix
 from model import GPT
 from muon import build_optimizers
 
-PEAK_TFLOPS = {"T4": 65, "3060 Ti": 65, "P100": 19, "V100": 125, "A100": 312}
+PEAK_TFLOPS = {"T4": 65, "3060 Ti": 32.4, "P100": 19, "V100": 125, "A100": 312}
 
 
 def make_scaler(enabled):
@@ -242,8 +242,9 @@ def main():
         if is_master() and not args.bench and \
                 (time.time() - t_ckpt > tc.ckpt_minutes * 60 or step == n_steps - 1):
             t_ckpt = time.time()
+            cpu_sd = {k: v.detach().to("cpu") for k, v in raw.state_dict().items()}
             atomic_save({
-                "model": raw.state_dict(),
+                "model": cpu_sd,
                 "optims": [o.state_dict() for o in opts],
                 "scaler": scaler.state_dict() if scaler.is_enabled() else None,
                 "step": step + 1, "tokens_seen": tokens_seen,
