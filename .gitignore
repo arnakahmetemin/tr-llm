@@ -1,0 +1,17 @@
+# büyük veri -- git'e girmez
+data/
+ornek/
+checkpoints/
+*.bin
+*.bin.*
+*.progress.json
+
+# python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# sistem
+.DS_Store
+.vscode/

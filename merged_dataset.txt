@@ -1,0 +1,4951 @@
+# Proje: Siyah-Beyaz Chatbot Arayüzü
+
+Bu projede HTML, CSS ve JavaScript kullanarak sade, siyah-beyaz ve modern görünümlü bir chatbot arayüzü oluşturacağız.
+
+Amaç sadece güzel görünen bir arayüz yapmak değil; HTML yapısını, CSS tasarımını ve JavaScript ile kullanıcı etkileşimini birlikte kullanmayı öğrenmektir.
+
+Proje sonunda kullanıcı mesaj yazabilecek, mesaj ekrana eklenecek, kısa bir yapay zekâ simülasyonu cevap verecek ve cevap hazırlanırken bir yazıyor göstergesi görünecek.
+
+---
+
+## Adım 1 — HTML yapısını oluşturma
+
+Öncelikle chatbotun temel HTML yapısını hazırlayalım.
+
+Sayfada üç temel bölüm olacak:
+
+* Üst kısım: chatbotun adı ve açıklaması
+* Orta kısım: mesajların gösterileceği alan
+* Alt kısım: kullanıcının mesaj yazacağı form
+
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MonoBot</title>
+</head>
+
+<body>
+
+    <header class="ust-bilgi">
+        <h1>MONOBOT</h1>
+        <p>Siyah-beyaz mini sohbet asistanı</p>
+    </header>
+
+    <main id="chat"></main>
+
+    <form id="giris-kutusu">
+        <input
+            id="mesaj"
+            type="text"
+            placeholder="Bir mesaj yaz..."
+            autocomplete="off"
+        >
+        <button type="submit">Gönder</button>
+    </form>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
+```
+
+Burada `main` elementi sohbet mesajlarının tutulduğu ana alan olarak kullanılıyor.
+
+`form` ise kullanıcıdan mesaj almak için kullanılıyor.
+
+---
+
+## Adım 2 — Siyah-beyaz tasarım
+
+Şimdi arayüzü tasarlayalım.
+
+Ana renkler sadece siyah, beyaz ve gri tonları olacak.
+
+Chatbotun okunabilir olması için arka plan açık gri, mesaj kutuları ise beyaz olacak.
+
+Ayrıca hafif neo-brutalist bir tasarım kullanacağız. Kalın kenarlıklar, belirgin butonlar ve net yazı tipleri kullanacağız.
+
+```css
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+    background: #eeeeee;
+    color: #111111;
+    font-family: Arial, sans-serif;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.ust-bilgi {
+    background: #111111;
+    color: #ffffff;
+    border-bottom: 4px solid #000000;
+    padding: 24px;
+}
+
+.ust-bilgi h1 {
+    font-size: 32px;
+    letter-spacing: 3px;
+}
+
+.ust-bilgi p {
+    margin-top: 6px;
+    color: #cccccc;
+}
+
+#chat {
+    flex: 1;
+    width: min(900px, 100%);
+    margin: 0 auto;
+    padding: 24px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+
+    overflow-y: auto;
+}
+
+#giris-kutusu {
+    width: min(900px, 100%);
+    margin: 0 auto;
+    padding: 18px 24px 24px;
+
+    display: flex;
+    gap: 10px;
+}
+
+#mesaj {
+    flex: 1;
+    padding: 14px;
+    border: 3px solid #111111;
+    background: #ffffff;
+    color: #111111;
+    font-size: 16px;
+    outline: none;
+}
+
+#mesaj:focus {
+    box-shadow: 5px 5px 0 #111111;
+}
+
+#giris-kutusu button {
+    border: 3px solid #111111;
+    background: #111111;
+    color: #ffffff;
+    padding: 14px 22px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#giris-kutusu button:hover {
+    background: #ffffff;
+    color: #111111;
+}
+```
+
+Buradaki önemli nokta `box-sizing: border-box` kullanılmasıdır.
+
+Bu özellik genişlik ve yükseklik hesaplamalarını daha kontrol edilebilir hâle getirir.
+
+---
+
+## Adım 3 — Mesaj baloncuklarını oluşturma
+
+Şimdi kullanıcı ve bot mesajlarını birbirinden ayıracağız.
+
+Kullanıcı mesajları sağ tarafta, bot mesajları ise sol tarafta görünecek.
+
+```css
+.mesaj-satiri {
+    display: flex;
+}
+
+.mesaj-satiri.kullanici {
+    justify-content: flex-end;
+}
+
+.mesaj-satiri.bot {
+    justify-content: flex-start;
+}
+
+.mesaj-kutusu {
+    max-width: 75%;
+    padding: 14px 16px;
+    border: 3px solid #111111;
+    background: #ffffff;
+    line-height: 1.5;
+}
+
+.mesaj-satiri.kullanici .mesaj-kutusu {
+    background: #111111;
+    color: #ffffff;
+}
+```
+
+Burada `.kullanici` ve `.bot` sınıfları mesajın kime ait olduğunu belirliyor.
+
+Bu sayede JavaScript yeni bir mesaj oluştururken doğru sınıfı verebilir.
+
+---
+
+## Adım 4 — JavaScript ile chatbot mantığı
+
+Şimdi chatbotun çalışmasını sağlayacağız.
+
+Gerçek bir yapay zekâ API'si kullanmak yerine basit bir demo cevap sistemi oluşturacağız.
+
+Kullanıcının mesajını küçük harflere çevirip bazı anahtar kelimeleri kontrol edeceğiz.
+
+```javascript
+const chat = document.getElementById("chat");
+const form = document.getElementById("giris-kutusu");
+const input = document.getElementById("mesaj");
+
+function mesajEkle(metin, tip) {
+    const satir = document.createElement("div");
+    satir.className = `mesaj-satiri ${tip}`;
+
+    const kutu = document.createElement("div");
+    kutu.className = "mesaj-kutusu";
+    kutu.textContent = metin;
+
+    satir.appendChild(kutu);
+    chat.appendChild(satir);
+
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function botCevabi(metin) {
+    const mesaj = metin.toLowerCase();
+
+    if (mesaj.includes("merhaba") || mesaj.includes("selam")) {
+        return "Merhaba! Sana nasıl yardımcı olabilirim?";
+    }
+
+    if (mesaj.includes("html")) {
+        return "HTML, web sayfasının yapısını oluşturmak için kullanılan işaretleme dilidir.";
+    }
+
+    if (mesaj.includes("javascript")) {
+        return "JavaScript, web sayfalarına etkileşim ve davranış eklememizi sağlar.";
+    }
+
+    if (mesaj.includes("nasılsın")) {
+        return "Gayet iyiyim. Kod yazmaya hazırım.";
+    }
+
+    return "Bunu henüz anlayamadım. Başka bir şey deneyebilir misin?";
+}
+```
+
+Burada `includes()` metnin içerisinde belirli bir kelimenin bulunup bulunmadığını kontrol ediyor.
+
+Bu sistem gerçek bir dil modeli değildir. Sadece önceden yazılmış kurallara göre cevap üretir.
+
+---
+
+## Adım 5 — Yazıyor göstergesi
+
+Chatbot cevap vermeden önce kısa bir gecikme ekleyelim.
+
+Bu sırada kullanıcıya botun cevap hazırladığını göstereceğiz.
+
+```javascript
+function yaziyorGoster() {
+    const satir = document.createElement("div");
+    satir.className = "mesaj-satiri bot";
+    satir.id = "yaziyor";
+
+    const kutu = document.createElement("div");
+    kutu.className = "mesaj-kutusu";
+    kutu.textContent = "Yazıyor...";
+
+    satir.appendChild(kutu);
+    chat.appendChild(satir);
+
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function yaziyorKaldir() {
+    const yaziyor = document.getElementById("yaziyor");
+
+    if (yaziyor) {
+        yaziyor.remove();
+    }
+}
+```
+
+Buradaki `id="yaziyor"` sayesinde oluşturduğumuz göstergeyi daha sonra kolayca bulup silebiliriz.
+
+---
+
+## Adım 6 — Form gönderme işlemi
+
+Şimdi bütün parçaları birbirine bağlayacağız.
+
+Kullanıcı formu gönderdiğinde normal tarayıcı form davranışını durdurmamız gerekiyor.
+
+Bunun için `event.preventDefault()` kullanacağız.
+
+```javascript
+form.addEventListener("submit", function(event) {
+    event.preventDefault();
+
+    const metin = input.value.trim();
+
+    if (!metin) {
+        return;
+    }
+
+    mesajEkle(metin, "kullanici");
+
+    input.value = "";
+
+    yaziyorGoster();
+
+    setTimeout(() => {
+        yaziyorKaldir();
+
+        const cevap = botCevabi(metin);
+        mesajEkle(cevap, "bot");
+    }, 700);
+});
+```
+
+`preventDefault()` kullanılmasaydı form varsayılan davranışını gerçekleştirebilir ve sayfanın yeniden yüklenmesine neden olabilirdi.
+
+`trim()` ise mesajın başındaki ve sonundaki gereksiz boşlukları temizler.
+
+---
+
+# Adım 7 — Tam proje kodu
+
+Şimdi HTML, CSS ve JavaScript kodlarını tek bir dosyada birleştirebiliriz.
+
+Bu sürüm doğrudan `index.html` olarak kaydedilip tarayıcıda açılabilir.
+
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>MonoBot</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #eeeeee;
+            color: #111111;
+            font-family: Arial, sans-serif;
+
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ust-bilgi {
+            background: #111111;
+            color: #ffffff;
+            border-bottom: 4px solid #000000;
+            padding: 24px;
+        }
+
+        .ust-bilgi h1 {
+            font-size: 32px;
+            letter-spacing: 3px;
+        }
+
+        .ust-bilgi p {
+            margin-top: 6px;
+            color: #cccccc;
+        }
+
+        #chat {
+            flex: 1;
+            width: min(900px, 100%);
+            margin: 0 auto;
+            padding: 24px;
+
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+
+            overflow-y: auto;
+        }
+
+        .mesaj-satiri {
+            display: flex;
+        }
+
+        .mesaj-satiri.kullanici {
+            justify-content: flex-end;
+        }
+
+        .mesaj-satiri.bot {
+            justify-content: flex-start;
+        }
+
+        .mesaj-kutusu {
+            max-width: 75%;
+            padding: 14px 16px;
+            border: 3px solid #111111;
+            background: #ffffff;
+            line-height: 1.5;
+        }
+
+        .mesaj-satiri.kullanici .mesaj-kutusu {
+            background: #111111;
+            color: #ffffff;
+        }
+
+        #giris-kutusu {
+            width: min(900px, 100%);
+            margin: 0 auto;
+            padding: 18px 24px 24px;
+
+            display: flex;
+            gap: 10px;
+        }
+
+        #mesaj {
+            flex: 1;
+            padding: 14px;
+            border: 3px solid #111111;
+            background: #ffffff;
+            color: #111111;
+            font-size: 16px;
+            outline: none;
+        }
+
+        #mesaj:focus {
+            box-shadow: 5px 5px 0 #111111;
+        }
+
+        #giris-kutusu button {
+            border: 3px solid #111111;
+            background: #111111;
+            color: #ffffff;
+            padding: 14px 22px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #giris-kutusu button:hover {
+            background: #ffffff;
+            color: #111111;
+        }
+
+        @media (max-width: 600px) {
+            #giris-kutusu {
+                flex-direction: column;
+            }
+
+            #giris-kutusu button {
+                width: 100%;
+            }
+
+            .mesaj-kutusu {
+                max-width: 90%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="ust-bilgi">
+        <h1>MONOBOT</h1>
+        <p>Siyah-beyaz mini sohbet asistanı</p>
+    </header>
+
+    <main id="chat"></main>
+
+    <form id="giris-kutusu">
+        <input
+            id="mesaj"
+            type="text"
+            placeholder="Bir mesaj yaz..."
+            autocomplete="off"
+        >
+
+        <button type="submit">
+            Gönder
+        </button>
+    </form>
+
+    <script>
+        const chat = document.getElementById("chat");
+        const form = document.getElementById("giris-kutusu");
+        const input = document.getElementById("mesaj");
+
+        function mesajEkle(metin, tip) {
+            const satir = document.createElement("div");
+            satir.className = `mesaj-satiri ${tip}`;
+
+            const kutu = document.createElement("div");
+            kutu.className = "mesaj-kutusu";
+            kutu.textContent = metin;
+
+            satir.appendChild(kutu);
+            chat.appendChild(satir);
+
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function botCevabi(metin) {
+            const mesaj = metin.toLowerCase();
+
+            if (mesaj.includes("merhaba") || mesaj.includes("selam")) {
+                return "Merhaba! Sana nasıl yardımcı olabilirim?";
+            }
+
+            if (mesaj.includes("html")) {
+                return "HTML, web sayfasının yapısını oluşturmak için kullanılan işaretleme dilidir.";
+            }
+
+            if (mesaj.includes("javascript")) {
+                return "JavaScript, web sayfalarına etkileşim ve davranış eklememizi sağlar.";
+            }
+
+            if (mesaj.includes("nasılsın")) {
+                return "Gayet iyiyim. Kod yazmaya hazırım.";
+            }
+
+            return "Bunu henüz anlayamadım. Başka bir şey deneyebilir misin?";
+        }
+
+        function yaziyorGoster() {
+            const satir = document.createElement("div");
+            satir.className = "mesaj-satiri bot";
+            satir.id = "yaziyor";
+
+            const kutu = document.createElement("div");
+            kutu.className = "mesaj-kutusu";
+            kutu.textContent = "Yazıyor...";
+
+            satir.appendChild(kutu);
+            chat.appendChild(satir);
+
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function yaziyorKaldir() {
+            const yaziyor = document.getElementById("yaziyor");
+
+            if (yaziyor) {
+                yaziyor.remove();
+            }
+        }
+
+        form.addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            const metin = input.value.trim();
+
+            if (!metin) {
+                return;
+            }
+
+            mesajEkle(metin, "kullanici");
+
+            input.value = "";
+
+            yaziyorGoster();
+
+            setTimeout(() => {
+                yaziyorKaldir();
+
+                const cevap = botCevabi(metin);
+                mesajEkle(cevap, "bot");
+            }, 700);
+        });
+
+        mesajEkle(
+            "Merhaba! Ben MonoBot. Bana bir şeyler yazabilirsin.",
+            "bot"
+        );
+    </script>
+
+</body>
+</html>
+```
+
+# Test
+
+Dosyayı `index.html` olarak kaydedip tarayıcıda açalım.
+
+Daha sonra şu mesajları deneyebiliriz:
+
+```text
+Merhaba
+```
+
+Beklenen cevap:
+
+```text
+Merhaba! Sana nasıl yardımcı olabilirim?
+```
+
+Başka bir test:
+
+```text
+HTML nedir?
+```
+
+Beklenen cevap:
+
+```text
+HTML, web sayfasının yapısını oluşturmak için kullanılan işaretleme dilidir.
+```
+
+Boş mesaj gönderildiğinde ise mesaj gönderilmemelidir.
+
+Ayrıca mobil ekran küçültüldüğünde giriş alanının alt alta geçmesi gerekir.
+
+# Sonuç
+
+Bu projede:
+
+* HTML ile chatbotun yapısını oluşturduk.
+* CSS ile siyah-beyaz tasarım yaptık.
+* Kullanıcı ve bot mesajlarını farklı şekilde gösterdik.
+* JavaScript ile mesaj gönderme sistemi oluşturduk.
+* `preventDefault()` ile formun varsayılan davranışını engelledik.
+* Anahtar kelime tabanlı basit bir bot cevabı sistemi ekledik.
+* Yazıyor göstergesi ve gecikmeli cevap ekledik.
+* Mobil ekranlar için responsive tasarım ekledik.
+
+Bu örnek gerçek bir yapay zekâ modeli kullanmaz. Cevaplar önceden tanımlanmış kurallara göre oluşturulur. Gerçek bir chatbot yapmak için daha sonra bir backend ve bir dil modeli API'si bağlanabilir.
+<|endoftext|>
+Tamam reis, aynı formatla gidiyoruz: hedef → plan → adım adım anlatım → örnekler → birleşik tam sayfa.
+
+CSS'te bir web sayfasının görünümünü oluşturmak için öncelikle CSS'in HTML'e nasıl bağlandığını ve seçici (selector) mantığını bilmemiz gerekir.
+
+## Plan
+
+1. CSS nedir, HTML'e 3 way bağlama (inline, internal, external)
+2. Seçiciler (element, class, id, combinator, attribute)
+3. Renkler ve birimler (px, em, rem, %, vh/vw)
+4. Box model (padding, border, margin, box-sizing)
+5. Tipografi (font, renk, hizalama, satır aralığı)
+6. Arkaplan ve gradyanlar
+7. Display ve konumlandırma (position, z-index)
+8. Flexbox (tek boyutlu yerleşim)
+9. Grid (iki boyutlu yerleşim)
+10. Transform, transition ve animasyonlar (@keyframes)
+11. Gölgeler ve yuvarlak köşeler (shadow, radius)
+12. Pseudo-class ve pseudo-element (:hover, ::before)
+13. CSS değişkenleri ve responsive tasarım (media query)
+14. Hepsini birleştiren şık bir örnek sayfa (animasyonlu, gradyanlı hero bölümü)
+
+---
+
+## Adım 1 — CSS Nedir, HTML'e Nasıl Bağlanır
+
+CSS = **Cascading Style Sheets**. HTML "bu bir başlık" der, CSS "başlık kırmızı, ortada, 40 piksel olsun" der. Yani HTML iskelet, CSS boyadır.
+
+CSS'i HTML'e bağlamanın 3 yolu var:
+
+```html
+<!-- 1. INLINE: etiketin içine (hızlı ama bakımı zor, kaçının) -->
+<p style="color: red;">Kırmızı paragraf</p>
+
+<!-- 2. INTERNAL: <head> içinde <style> etiketiyle (tek dosyalık projeler için iyi) -->
+<style>
+  p { color: red; }
+</style>
+
+<!-- 3. EXTERNAL: ayrı .css dosyası (profesyonel yol) -->
+<link rel="stylesheet" href="stil.css">
+```
+
+CSS kural yapısı şu şekildedir:
+
+```css
+secici {
+  ozellik: deger;
+  baska-ozellik: deger;
+}
+
+/* Örnek */
+p {
+  color: red;
+  font-size: 18px;
+}
+```
+
+**Cascading** (şelale) ne demek? Aynı elemana birden fazla kural çarpışırsa CSS sırayla karar verir: en spesifik seçici kazanır, eşitlikte **son yazılan** kazanır. `!important` her şeyi ezer ama tehlikelidir, kodu düzensizleştirir — kaçının.
+
+---
+
+## Adım 2 — Seçiciler
+
+En çok kullanacağın kısımlardan biri. Sırayla:
+
+```css
+/* ELEMENT seçici: o türdeki TÜM etiketleri yakalar */
+p { color: gray; }
+
+/* CLASS seçici (nokta ile): aynı class'lı herkesi yakalar — EN ÇOK BUNU KULLAN */
+.kart { border: 1px solid #ddd; }
+
+/* ID seçici (# ile): tek bir benzersiz eleman */
+#menu { background: black; }
+
+/* EVRENSEL: her şey */
+* { margin: 0; }
+
+/* GRUP: virgül = "şunlar da" */
+h1, h2, h3 { font-family: Arial; }
+```
+
+Combinator'lar (ilişki seçicileri) — aradaki boşluk ve işaretler **anlam taşır**:
+
+```css
+/* SOY (descendant): .kart'ın içindeki herhangi bir p */
+.kart p { color: navy; }
+
+/* ÇOCUK (child): sadece doğrudan çocuğu */
+.kart > p { color: navy; }
+
+/* KOMŞU (adjacent): h2'den HEMEN sonra gelen p */
+h2 + p { margin-top: 0; }
+
+/* KARDEŞLER (sibling): h2'den sonra gelen TÜM p'ler */
+h2 ~ p { color: gray; }
+```
+
+Attribute seçicileri — form elemanlarında altın değerinde:
+
+```css
+input[type="text"]   { border: 2px solid blue; }
+input[type="email"]  { border: 2px solid green; }
+a[href^="https"]     { color: green; }   /* https ile BAŞLAYAN */
+img[src$=".png"]     { border: none; }   /* .png ile BİTEN */
+```
+
+Spesifiklik (specificity) hesabını basitçe aklında tut: **inline style > id > class > element**. Yani `#menu` kuralı, `.menu` kuralını, o da `div` kuralını ezer.
+
+---
+
+## Adım 3 — Renkler ve Birimler
+
+Renk yazmanın 4 yolu:
+
+```css
+.kutu {
+  color: red;                          /* isimle */
+  color: #ff0000;                      /* hex ile (en yaygın) */
+  color: rgb(255, 0, 0);               /* rgb */
+  color: rgba(255, 0, 0, 0.5);         /* rgba: a = saydamlık (0-1) */
+  color: hsl(0, 100%, 50%);            /* hsl: renk tonu, doygunluk, parlaklık */
+}
+```
+
+Hex'te kısayol var: `#ff0000` = `#f00`, `#aabbcc` = `#abc`.
+
+Birimler — burası yeni başlayanların en çok takıldığı yer:
+
+```css
+.a {
+  font-size: 16px;      /* piksel: sabit, ekranın gerçek noktası */
+  font-size: 1.2em;     /* EBEVEYNİN font boyutuna göre çarpan */
+  font-size: 1.2rem;    /* kök (html) font boyutuna göre — TAVSİYE EDİLEN */
+  width: 50%;           /* ebeveynin genişliğinin yüzdesi */
+  height: 100vh;        /* viewport height: ekran yüksekliğinin %100'ü */
+  width: 100vw;         /* viewport width: ekran genişliğinin %100'ü */
+}
+```
+
+Altın kural: **font boyutu ve boşluklar için rem, ekran dolgusu için % ve vw/vh, ince ayar için px.** `em` iç içe geçince çarpanlara yediiği için kafa karıştırır, dikkatli kullan.
+
+---
+
+## Adım 4 — Box Model (Kutu Modeli)
+
+CSS'te **her şey bir kutudur**. Her kutunun dıştan içe 4 katmanı vardır:
+
+```
+margin  →  border  →  padding  →  content
+(dış boşluk) (çerçeve)  (iç boşluk)  (içerik)
+```
+
+```css
+.kutu {
+  width: 300px;
+  padding: 20px;             /* iç boşluk: içerikle çerçeve arası */
+  border: 2px solid black;   /* çerçeve */
+  margin: 10px auto;         /* dış boşluk: diğer kutularla arası. auto = yatay ortalama */
+}
+```
+
+Kritik tuzak: yukarıdaki kutunun **gerçek genişliği** `300 + 20*2 + 2*2 = 344px` olur! Çünkü varsayılan ayar `width` sadece içeriği sayar. Bunu şöyle düzeltiriz — her projenin ilk satırı bu olmalı:
+
+```css
+* {
+  box-sizing: border-box;
+  /* artık width = border dahil TOPLAM genişlik. Aferin CSS, mantıklı oldu */
+}
+```
+
+Kısayollar (saat yönünde üst-sağ-alt-sol):
+
+```css
+padding: 10px;                 /* her yer 10 */
+padding: 10px 20px;            /* üst-alt 10, sağ-sol 20 */
+padding: 10px 20px 30px 40px;  /* üst sağ alt sol (saat yönü) */
+
+/* tek tek de yazılabilir */
+margin-top: 5px;
+margin-left: auto;   /* kutuyu sağa yaslar */
+```
+
+---
+
+## Adım 5 — Tipografi
+
+```css
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  /* birden fazla yazılır: ilki yoksa ikincisi, o da yoksa sistemin sans-serif'i */
+
+  font-size: 16px;         /* temel boyut */
+  font-weight: bold;       /* 100-900 de olur: 400 normal, 700 bold */
+  font-style: italic;      /* eğik */
+  line-height: 1.6;        /* satır aralığı. birimsiz yaz, font'un 1.6 katı = okunaklı */
+  letter-spacing: 1px;     /* harf arası */
+  text-align: center;      /* left | right | center | justify */
+  text-decoration: none;   /* link altı çizgiyi kaldırmak için klasik */
+  text-transform: uppercase;  /* hepsi BÜYÜK | lowercase | capitalize */
+}
+```
+
+`line-height`'ın birimsiz yazılmasının sebebi: `24px` yazarsan daralıp genişleyen fontlarda boğulur; `1.6` yazarsan her font boyutuna oranla uyum sağlar. Okunabilir paragraf için `1.5–1.7` arası idealdir.
+
+Google Fonts gibi dış font da bağlanabilir:
+
+```html
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+```
+```css
+body { font-family: 'Poppins', sans-serif; }
+```
+
+---
+
+## Adım 6 — Arkaplan ve Gradyanlar (Senin istediğin kısım reis)
+
+Düz renkler sıkıcı gelir, asıl güç burada başlıyor:
+
+```css
+.resim {
+  background-color: #1a1a2e;
+
+  /* GÖRSEL ARKAPLAN */
+  background-image: url('manzara.jpg');
+  background-size: cover;        /* kutuyu tam doldur (en sık kullanılan) */
+  background-position: center;   /* ortasını göster */
+  background-repeat: no-repeat;
+  background-attachment: fixed;  /* kaydırırken arkaplan sabit kalır, şık bir efekt */
+}
+
+/* LINEAR GRADYAN: renkten renge geçiş */
+.banner {
+  background: linear-gradient(to right, #ff6b6b, #4ecdc4);
+  background: linear-gradient(45deg, #667eea, #764ba2);  /* açı da verebilirsin */
+  background: linear-gradient(to bottom,
+    #1a1a2e 0%,
+    #16213e 50%,
+    #0f3460 100%);            /* durak noktalarıyla kontrol */
+}
+
+/* RADIAL GRADYAN: merkezden dışa dağılan */
+.spot {
+  background: radial-gradient(circle, #ffd700, #ff8c00);
+}
+
+/* ÜSTÜNE GÖRSEL: görselin okunabilirliği için karartma katmanı — profesyonel hile */
+.hero {
+  background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.8)),
+              url('hero.jpg');
+  background-size: cover;
+}
+```
+
+En çok işine yarayacak olan sonuncusu: üzerinde beyaz yazı olan bir hero görseli, üstüne yarı saydam siyah gradyan çekmeden okunmaz. Bu tek satır sayfayı anında profesyonel gösterir.
+
+---
+
+## Adım 7 — Display ve Position
+
+`display` bir elemanın **akışta nasıl davrandığını** belirler:
+
+```css
+.duz-satir   { display: inline; }   /* satır içinde akar: span, a. genişlik/yükseklik ALMAZ */
+.kutu-gibi   { display: block; }    /* tüm satırı kaplar: div, p. genişlik/yükseklik alır */
+.hibrit      { display: inline-block; } /* satırda akar AMA boyut verilebilir: butonlar */
+.yok-et      { display: none; }     /* elemanı akıştan tamamen sil */
+.gizlice     { visibility: hidden; } /* görünmez ama YERİ DURUR — none ile farkı bu! */
+```
+
+`position` — 5 mod var, en çok kullanılan 4'ü:
+
+```css
+.statik  { position: static; }    /* varsayılan, akışta normal durur */
+
+.rel     { position: relative;    /* normal yerinden ofsetlenebilir; ayrıca absolute çocuklar için referans olur */
+           top: 10px; left: 20px; }
+
+.abs     { position: absolute;    /* en yakın position'lı ata göre konumlanır, akıştan çıkar */
+           top: 0; right: 0; }
+
+.fix     { position: fixed;       /* EKRANA göre sabitlenir, scroll etsen de kaymaz */
+           top: 0; width: 100%; z-index: 100; }
+
+.sticky  { position: sticky;      /* scroll edene kadar normal, sonra yapışır */
+           top: 0; }              /* menüler için mükemmel */
+```
+
+Klasik ikili: **relatif ata + absolute çocuk**. Modal kutusu, rozet (badge), açılır menü hepsi bu ikiliyle yapılır:
+
+```css
+.kart    { position: relative; }
+.rozet   { position: absolute; top: -8px; right: -8px; }
+```
+
+`z-index` üst üste binen elemanların katman sırasını belirler; yüksek olan önde görünür. Sadece `position`'lı elemanlarda çalışır.
+
+---
+
+## Adım 8 — Flexbox (Tek Boyutlu Yerleşim)
+
+Modern CSS'in MVP'si. Elemanları **bir eksende** (yatay ya da dikey) hizalamak için. Eski çağda float'la alın teriyle yapılan her şey artık 3 satır:
+
+```css
+.menu {
+  display: flex;
+  flex-direction: row;        /* row: yatay | column: dikey */
+  justify-content: center;    /* ANA eksende hizala: flex-start | center | space-between | space-around | space-evenly */
+  align-items: center;        /* DİKEY eksende hizala: flex-start | center | stretch */
+  gap: 16px;                  /* elemanlar arası boşluk — margin derdi bitti */
+  flex-wrap: wrap;            /* sığmazsa alt satıra geçir */
+}
+```
+
+`justify-content` ve `align-items` farkını akılda tutma yöntemi: **justify = ana eksen, align = çapraz eksen.** `flex-direction` değişirse ikisinin anlamı da yer değiştirir.
+
+Esnek elemanlara büyüme oranı verilir:
+
+```css
+.menu a { flex: 1; }        /* boş alanı eşit paylaş */
+.kenar  { flex: 0 0 200px; }/* büyüme 0, küçülme 0, sabit 200px */
+.icerek { flex: 1; }        /* kalan tüm alanı o alır — sidebar + içerik düzeni */
+```
+
+Klasik "sticky footer" düzeni — 5 satırda biter:
+
+```css
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+main { flex: 1; }
+/* içerik kısa olsa bile footer en altta kalır */
+```
+
+---
+
+## Adım 9 — Grid (İki Boyutlu Yerleşim)
+
+Flexbox tek eksende iyiyse Grid **satır VE sütun** birlikte istediğinde şarttır: galeriler, kart ızgaraları, sayfa iskeletleri.
+
+```css
+.galeri {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);  /* 3 eşit sütun. fr = kalan alanın payı */
+  gap: 20px;
+}
+
+/* Farklı genişlikler */
+.ustbar {
+  grid-template-columns: 200px 1fr 300px; /* sabit - esnek - sabit */
+}
+
+/* Muhteşem kısır döngü kırıcı: satır sayısı belirtmeden responsive grid */
+.galeri {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  /* ekran daraldıkça sütun sayısı KENDİ KÜÇÜLÜR. media query bile gerekmez */
+}
+
+/* Elemanları hücrelere yayma */
+.buyuk-kart {
+  grid-column: span 2;   /* 2 sütun kapla */
+  grid-row: span 2;      /* 2 satır kapla */
+}
+
+/* Alanları isimlendirerek sayfa kurma */
+.sayfa {
+  display: grid;
+  grid-template-areas:
+    "ust    ust"
+    "menu   icerik"
+    "alt    alt";
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: 250px 1fr;
+}
+.ustbar { grid-area: ust; }
+.menu   { grid-area: menu; }
+.icerik { grid-area: icerik; }
+.footer { grid-area: alt; }
+```
+
+Karar kuralı: **içerik bir hat üzerinde akıyorsa flexbox, satır-sütun ızgarasıysa grid.** İkisi iç içe de kullanılır: sayfa grid, kartın içi flex.
+
+---
+
+## Adım 10 — Transform, Transition ve Animasyonlar
+
+İşte sayfayı canlandıran kısım reis. Üç katman var: **transform** (değiştir), **transition** (yumuşat), **animation** (sahnele).
+
+```css
+/* TRANSFORM: elemanı fiziksel olarak dönüştür. Layout'u bozmaz, performanslıdır */
+.kutu {
+  transform: translate(20px, -10px);  /* taşı */
+  transform: rotate(45deg);           /* döndür */
+  transform: scale(1.2);              /* büyüt (1 = orijinal) */
+  transform: skewX(10deg);            /* eğ */
+}
+
+/* TRANSITION: bir özellik değişince yumuşak geçiş yap.
+   Genelde hover ile beraber kullanılır */
+.buton {
+  background: #3498db;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+.buton:hover {
+  background: #2c80b4;
+  transform: translateY(-3px) scale(1.05);  /* biraz yukarı + büyü */
+}
+```
+
+`transition` kuralı **normal halde** yazılır, hover'da değil — yoksa geri dönüş anında animasyon olmaz.
+
+```css
+/* ANIMATION + @keyframes: sürekli veya karmaşık animasyonlar */
+
+/* 1. Sahneyi tanımla */
+@keyframes renk-degistir {
+  0%   { background: red; }
+  50%  { background: yellow; transform: scale(1.1); }
+  100% { background: red; }
+}
+
+@keyframes yukaridan-gir {
+  from { opacity: 0; transform: translateY(-30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes don {
+  to { transform: rotate(360deg); }  /* from yazmazsan mevcut halden başlar */
+}
+
+/* 2. Uygula */
+.kutu    { animation: renk-degistir 3s infinite; }  /* sonsuz döngü */
+.giris   { animation: yukaridan-gir 0.6s ease-out; }
+.yukleni { animation: don 1s linear infinite; }     /* loading spinner! */
+```
+
+Hazır şablonlar — direkt kullanabileceğin klasikler:
+
+```css
+/* Yükleme halkası (spinner) */
+.spinner {
+  width: 40px; height: 40px;
+  border: 4px solid #ddd;
+  border-top-color: #3498db;   /* sadece üst kısım renkli */
+  border-radius: 50%;
+  animation: don 0.8s linear infinite;
+}
+
+/* Nabız atan rozet */
+.nabiz {
+  animation: nabiz 1.5s ease-in-out infinite;
+}
+@keyframes nabiz {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.15); }
+}
+
+/* Yüzen baloncuk efekti */
+.yuzen {
+  animation: yuz 3s ease-in-out infinite;
+}
+@keyframes yuz {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+```
+
+---
+
+## Adım 11 — Gölge ve Yuvarlak Köşe
+
+Sayfaya "derinlik" veren iki özellik:
+
+```css
+.kart {
+  border-radius: 12px;                 /* köşe yuvarlama. 50% = daire! */
+  border-radius: 12px 12px 0 0;        /* sadece üst köşeler */
+
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  /*             x   y  bulanıklık  renk */
+
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);  /* daha geniş = daha "yüksekte" his */
+}
+
+.yazi-golgesi {
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);  /* hero yazılarında okunabilirlik için */
+}
+
+/* Neon efekti — gradyan çağının klasiği */
+.neon {
+  box-shadow: 0 0 10px #0ff, 0 0 40px #0ff;
+  text-shadow: 0 0 10px #0ff;
+}
+```
+
+Gölge psikolojisi: hafif, bulanık, düşük opaklıkta gölge kartları "havada duruyormuş" gibi gösterir. Keskin siyah gölge 2005'te kaldı, rgba kullan.
+
+---
+
+## Adım 12 — Pseudo-class ve Pseudo-element
+
+Pseudo-class (iki nokta üst üste **tek**) duruma göre stil verir:
+
+```css
+a:hover          { color: red; }        /* fare ÜZERİNDEYKEN */
+a:visited        { color: purple; }     /* daha önce ziyaret edilmiş */
+input:focus      { border-color: blue; }/* odaklanılmış (klasik form stili) */
+input:disabled   { opacity: 0.5; }      /* devre dışı */
+li:first-child   { font-weight: bold; } /* ilk çocuk */
+li:last-child    { border: none; }      /* son çocuk */
+li:nth-child(2n) { background: #f5f5f5; } /* her 2.'den biri = zebra tablo! */
+li:nth-child(3)  { color: red; }        /* 3. çocuk */
+tr:hover         { background: #eef; }  /* satırın üzerine gelince parlat */
+:not(.ozel)      { color: gray; }       /* .ozel OLMAYAN herkes */
+```
+
+`:nth-child(2n)` ile zebra deseni tek satır — tablolarda okunabilirliği ikiye katlar.
+
+Pseudo-element (çift iki nokta `::`) elemanın **parçalarına** dokunur:
+
+```css
+p::first-line   { font-weight: bold; }   /* ilk satır */
+p::first-letter { font-size: 3em; }      /* drop-cap efekti */
+::selection     { background: #ff6b6b; } /* kullanıcı seçim yaptığı an */
+input::placeholder { color: #999; }      /* placeholder rengi */
+
+/* EN GÜÇLÜSÜ: ::before ve ::after — elemana sanal içerik ekle */
+.fiyat::before { content: "₺ "; color: green; }
+.zorunlu::after { content: " *"; color: red; }
+
+/* Dekoratif çizgi örneği */
+.baslik::after {
+  content: "";
+  display: block;
+  width: 60px; height: 4px;
+  background: linear-gradient(to right, #667eea, #764ba2);
+  margin-top: 8px;
+  border-radius: 2px;
+}
+```
+
+---
+
+## Adım 13 — CSS Değişkenleri ve Responsive Tasarım
+
+Aynı rengi 40 yerde kullandın, marka rengi değişti. Tek tek mi düzenleyeceksin? Hayır:
+
+```css
+:root {                     /* kökte tanımla: her yerden erişilir */
+  --ana-renk: #667eea;
+  --ikincil: #764ba2;
+  --metin: #333;
+  --aralik: 20px;
+}
+
+.buton {
+  background: var(--ana-renk);
+  padding: var(--aralik);
+}
+.baslik { color: var(--ana-renk); }
+
+/* Karanlık mod = sadece değişkenleri değiştir! */
+[data-tema="koyu"] {
+  --metin: #eee;
+  --arka: #1a1a2e;
+}
+```
+
+Responsive tasarım — ekran boyutuna göre farklı kural:
+
+```css
+/* Mobil öncelikli yaklaşım: önce mobil yaz, sonra büyüt */
+
+.kartlar { grid-template-columns: 1fr; }  /* mobilde tek sütun */
+
+/* 768px ÜZERİ tablet */
+@media (min-width: 768px) {
+  .kartlar { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* 1024px ÜZERİ masaüstü */
+@media (min-width: 1024px) {
+  .kartlar { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Yazdırma için bile media query olabilir */
+@media print {
+  .menu, .footer { display: none; }
+}
+```
+
+Unutma: responsive `<meta name="viewport">` etiketi olmadan çalışmaz — onu HTML tarafında yazmıştık.
+
+---
+
+## Adım 14 — Hepsini Birleştiren Tam Sayfa
+
+Şimdi tüm öğrendiklerimizi tek bir `index.html`'de birleştiriyorum: gradyan hero, animasyonlu giriş, hover'lı kart ızgarası (Grid), sticky menü, zebra tablo, buton transition'ları ve responsive yapısıyla bitmiş bir landing sayfası.
+
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova — CSS Showcase</title>
+<style>
+  /* ===== Değişkenler ve sıfırlama ===== */
+  :root {
+    --ana: #667eea;
+    --ikincil: #764ba2;
+    --metin: #2d3436;
+    --gri: #636e72;
+    --arka: #f5f6fa;
+    --aralik: 24px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: var(--metin);
+    background: var(--arka);
+    line-height: 1.6;
+  }
+
+  /* ===== Sticky menü ===== */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 6%;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  }
+  .logo {
+    font-weight: 800; font-size: 1.3rem;
+    background: linear-gradient(45deg, var(--ana), var(--ikincil));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  nav a {
+    margin-left: 20px; text-decoration: none;
+    color: var(--gri); font-weight: 500;
+    transition: color .2s;
+  }
+  nav a:hover { color: var(--ana); }
+
+  /* ===== Hero: gradyan + animasyonlu giriş ===== */
+  .hero {
+    min-height: 80vh;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center;
+    padding: var(--aralik);
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #fff;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 6vw, 4rem);   /* clamp: min-ideal-max akışkan boyut */
+    animation: yukaridan-gir .8s ease-out both;
+  }
+  .hero p {
+    max-width: 520px; margin: 16px 0 32px;
+    color: rgba(255,255,255,.75);
+    animation: yukaridan-gir .8s ease-out .2s both;
+  }
+  .hero .buton { animation: yukaridan-gir .8s ease-out .4s both; }
+
+  @keyframes yukaridan-gir {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== Gradyan buton + transition ===== */
+  .buton {
+    display: inline-block;
+    padding: 14px 36px;
+    border: none; border-radius: 50px;
+    background: linear-gradient(45deg, var(--ana), var(--ikincil));
+    color: #fff; font-size: 1rem; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .buton:hover {
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: 0 10px 25px rgba(102,126,234,.45);
+  }
+
+  /* ===== Kart ızgarası: auto-fill grid ===== */
+  .bolum { padding: 80px 6%; }
+  .bolum h2 {
+    font-size: 2rem; margin-bottom: 6px;
+  }
+  .bolum h2::after {                 /* başlık altı dekoratif çizgi */
+    content: "";
+    display: block;
+    width: 60px; height: 4px; margin-top: 8px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--ana), var(--ikincil));
+  }
+  .izgara {
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--aralik);
+  }
+  .kart {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+    transition: transform .3s ease, box-shadow .3s ease;
+  }
+  .kart:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 16px 32px rgba(0,0,0,.12);
+  }
+  .ikon {
+    width: 56px; height: 56px;
+    display: grid; place-items: center;
+    font-size: 1.6rem;
+    border-radius: 14px; margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--ana), var(--ikincil));
+    animation: nabiz 3s ease-in-out infinite;
+  }
+  @keyframes nabiz {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.08); }
+  }
+  .kart h3 { margin-bottom: 8px; }
+  .kart p  { color: var(--gri); font-size: .95rem; }
+
+  /* ===== Fiyat tablosu: zebra + hover ===== */
+  table {
+    width: 100%; margin-top: 32px;
+    border-collapse: collapse;
+    background: #fff; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+  }
+  th, td { padding: 14px 20px; text-align: left; }
+  thead { background: linear-gradient(45deg, var(--ana), var(--ikincil)); color: #fff; }
+  tbody tr:nth-child(2n) { background: #f8f9fe; }
+  tbody tr:hover { background: #eef0fd; }
+
+  /* ===== Footer ===== */
+  footer {
+    text-align: center;
+    padding: 32px;
+    background: #1a1a2e;
+    color: rgba(255,255,255,.6);
+    font-size: .9rem;
+  }
+
+  /* ===== Responsive ===== */
+  @media (min-width: 768px) {
+    .hero { text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">◆ Nova</span>
+  <div>
+    <a href="#ozellikler">Özellikler</a>
+    <a href="#fiyat">Fiyatlar</a>
+    <a href="#" class="buton" style="padding:8px 22px; margin-left:12px;">Dene</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1>Fikirlerin, ekranında hayat bulsun</h1>
+  <p>Gradyanlar, animasyonlar, flexbox ve grid. Modern CSS ile saniyeler içinde profesyonel arayüzler.</p>
+  <a href="#ozellikler" class="buton">Hemen Keşfet →</a>
+</header>
+
+<section class="bolum" id="ozellikler">
+  <h2>Özellikler</h2>
+  <div class="izgara">
+    <div class="kart">
+      <div class="ikon">⚡</div>
+      <h3>Hızlı</h3>
+      <p>CSS animasyonları GPU üzerinde çalışır; transform ve opacity kullanıldığında 60 FPS kayıp olmadan akar.</p>
+    </div>
+    <div class="kart">
+      <div class="ikon">🎨</div>
+      <h3>Esnek</h3>
+      <p>CSS değişkenleriyle bir rengi tek satırda değiştir, bütün sayfa anında uyum sağlasın.</p>
+    </div>
+    <div class="kart">
+      <div class="ikon">📱</div>
+      <h3>Responsive</h3>
+      <p>auto-fill grid ve media query'ler sayesinde mobil, tablet ve masaüstünde tek kod.</p>
+    </div>
+    <div class="kart">
+      <div class="ikon">🧩</div>
+      <h3>Modüler</h3>
+      <p>Flexbox ile iç düzen, Grid ile sayfa iskeleti. İkisi el sıkışır, düzen mükemmel olur.</p>
+    </div>
+  </div>
+</section>
+
+<section class="bolum" id="fiyat">
+  <h2>Fiyatlar</h2>
+  <table>
+    <thead>
+      <tr><th>Paket</th><th>Aylık</th><th>Özellik</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Başlangıç</td><td>₺0</td><td>Temel bileşenler</td></tr>
+      <tr><td>Pro</td><td>₺149</td><td>Animasyonlar + tema</td></tr>
+      <tr><td>Kurumsal</td><td>₺499</td><td>Her şey + destek</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>© 2025 Nova — CSS ile yapıldı, tek dosya, sıfır bağımlılık.</footer>
+
+</body>
+</html>
+```
+
+Bu sayfada sırasıyla kullandıklarımız: CSS değişkenleri (`:root`), `box-sizing` sıfırlaması, `position: sticky` menü, **gradyan metin** (`background-clip: text`), radial değil linear gradyan hero, `@keyframes` ile kademeli giriş animasyonu (`animation-delay` + `both`), hover'da kalkan gradyan buton, `auto-fill + minmax` responsive kart ızgarası, nabız animasyonu, zebra tablo (`nth-child(2n)`), `::after` ile dekoratif başlık çizgisi ve `clamp()` ile akışkan yazı boyutu.
+
+---
+
+## Test / Özet
+
+**Nasıl çalıştırılır:** Kodu `index.html` olarak kaydet, tarayıcıda aç. Sunucu, kurulum gerekmez. Pencereyi daralt genişlet — kart ızgarasının kendi kendine uyum sağladığını gör.
+<|endoftext|>
+HTML'de bir web sayfasının temel yapısını oluşturmak için öncelikle HTML belgesinin iskeletini bilmemiz gerekir.
+
+## Plan
+
+1. HTML nedir, belge iskeleti (doctype, html, head, body)
+2. `<head>` içi elemanlar (meta, title, link, style, script)
+3. Metin elemanları (başlıklar, paragraf, format etiketleri)
+4. Bağlantılar ve görseller
+5. Listeler
+6. Tablolar
+7. Formlar ve tüm input türleri
+8. Medya elemanları (audio, video, iframe)
+9. Semantic (anlamsal) HTML5 elemanları
+10. Global attribute'lar (id, class, style, data-*)
+11. Yorumlar, entity'ler ve küçük ama önemli detaylar
+12. Hepsini birleştiren tam bir örnek sayfa
+
+---
+
+## Adım 1 — HTML Nedir ve Belge İskeleti
+
+HTML bir programlama dili değildir; **işaretleme dilidir** (Markup Language). Yani mantık yazmayız, içeriği **etiketlerle işaretleriz**. Tarayıcı bu işaretleri okuyup sayfayı çizer.
+
+Her HTML dosyası şu iskeletle başlar:
+
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Sayfa Başlığı</title>
+</head>
+<body>
+  <!-- Kullanıcının gördüğü her şey burada -->
+</body>
+</html>
+```
+
+Parça parça bakalım:
+
+- `<!DOCTYPE html>` → "Bu bir HTML5 belgesidir" der. Tarayıcıya standart modda çizmesini söyler. Bu satır olmadan tarayıcı eski tuhaf modlara geçebilir.
+- `<html lang="tr">` → Belgenin kök elemanı. `lang="tr"` içeriğin Türkçe olduğunu belirtir (ekran okuyucular ve arama motorları için önemli).
+- `<head>` → Kullanıcının **görmediği** kısım: başlık, karakter kodlaması, stil, meta bilgiler.
+- `<body>` → Kullanıcının **gördüğü** kısım: yazılar, resimler, butonlar, her şey.
+
+Etiket yapısı şöyledir:
+
+```html
+<etiket öznitelik="değer">İçerik</etiket>
+```
+
+Bazı etiketlerin içeriği yoktur, bunlara **boş (void) etiket** denir ve kapanmazlar:
+
+```html
+<br>   <hr>   <img>   <input>   <meta>   <link>
+```
+
+---
+
+## Adım 2 — `<head>` İçi Elemanlar
+
+Head, sayfanın "kimlik" bölümüdür. En sık kullanılanlar:
+
+```html
+<head>
+  <!-- Karakter kodlaması: Türkçe karakterler için şart -->
+  <meta charset="UTF-8">
+
+  <!-- Mobil uyumluluk: ekran genişliğini cihaza eşitler -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Sayfa açıklaması: Google arama sonucunda görünür -->
+  <meta name="description" content="HTML öğrenmek için Türkçe kaynak">
+
+  <!-- Sekmede görünen başlık -->
+  <title>Benim Sayfam</title>
+
+  <!-- CSS dosyası bağlama -->
+  <link rel="stylesheet" href="stil.css">
+
+  <!-- Sekme simgesi (favicon) -->
+  <link rel="icon" href="favicon.png">
+
+  <!-- Dahili stil -->
+  <style>
+    body { background: #f5f5f5; }
+  </style>
+
+  <!-- JavaScript (genelde body sonuna konur ama head'de de olur) -->
+  <script src="app.js" defer></script>
+</head>
+```
+
+Öğretici not: `<meta charset="UTF-8">` olmazsa Türkçe karakterler (ş, ğ, ı, ö) bozuk görünür. Bu satırı unutmayın, en sık yapılan hatadır.
+
+---
+
+## Adım 3 — Metin Elemanları
+
+Sayfanın eti buduru metindir. Başlıklar 6 seviyedir:
+
+```html
+<h1>En büyük başlık — sayfada genelde bir tane olur</h1>
+<h2>Alt başlık</h2>
+<h3>Alt alt başlık</h3>
+<h4>Başlık 4</h4>
+<h5>Başlık 5</h5>
+<h6>En küçük başlık</h6>
+```
+
+Önemli: `h1`'den `h6`'ya **görünüm için değil, hiyerarşi için** kullanılır. "Yazı büyüsün" diye h1 seçmek yanlıştır; büyüklük CSS'in işidir.
+
+Paragraf ve satır yapıları:
+
+```html
+<p>Bu bir paragraf. HTML'de birden fazla boşluk ve
+satır atlaması tek boşluk sayılır.</p>
+
+<p>Yeni satır istiyorsak<br>br etiketi kullanırız.</p>
+
+<hr>  <!-- Yatay çizgi, konu ayrımı anlamına gelir -->
+```
+
+Metin formatlama etiketleri — burada kritik ayrım şudur: **anlam taşıyanlar** ile **sadece görünüm değiştirenler** farklıdır:
+
+```html
+<strong>Bu önemli metindir (kalın görünür + anlamlı)</strong>
+<b>Sadece kalın (anlam taşımaz)</b>
+
+<em>Vurgulanmış metin (eğik + anlamlı)</em>
+<i>Sadece eğik (anlam taşımaz)</i>
+
+<u>Altı çizili</u>
+<s>Üstü çizili — iptal edilmiş</s>
+<mark>İşaretçiyle vurgulanmış gibi sarı zemin</mark>
+<small>Küçük dipnot yazısı</small>
+
+<code>kod parçası</code>
+<pre>
+  Boşluklar    ve
+  satırlar      aynen korunur. Kod göstermek için ideal.
+</pre>
+
+H₂O gibi yazmak için: H<sub>2</sub>O
+x² gibi yazmak için: x<sup>2</sup>
+
+<abbr title="HyperText Markup Language">HTML</abbr>  <!-- Üzerine gelince açılır -->
+<q>Kısa alıntı</q>
+<blockquote>Uzun blok alıntı, kendi satırında durur</blockquote>
+```
+
+Öğretici not: `strong` ve `b` ekranda aynı görünse de `strong` "bu içerik önemli" der. Arama motorları ve ekran okuyucular bu farkı anlar. Anlamlı olanı tercih edin.
+
+---
+
+## Adım 4 — Bağlantılar ve Görseller
+
+Bağlantı (`<a>`) web'in temel taşıdır:
+
+```html
+<!-- Başka siteye giden link (yeni sekmede açılır) -->
+<a href="https://example.com" target="_blank" rel="noopener">Örnek Site</a>
+
+<!-- Aynı sitede bir sayfaya -->
+<a href="hakkinda.html">Hakkında</a>
+
+<!-- Aynı sayfa içinde bir bölüme atlama -->
+<a href="#iletisim">İletişime git</a>
+...
+<h2 id="iletisim">İletişim</h2>
+
+<!-- E-posta ve telefon linkleri -->
+<a href="mailto:ben@site.com">Bana yaz</a>
+<a href="tel:+905555555555">Ara</a>
+
+<!-- İndirme linki -->
+<a href="dosya.pdf" download>CV'mi indir</a>
+```
+
+`target="_blank"` yeni sekmede açar; güvenlik için `rel="noopener"` ile beraber kullanmak iyi bir alışkanlıktır.
+
+Görseller:
+
+```html
+<img src="kedi.jpg" alt="Kumda uzanan turuncu bir kedi" width="400">
+
+<!-- Responsive görsel örneği (CSS ile birlikte) -->
+<img src="manzara.jpg" alt="Gün batımında dağlar" style="max-width:100%; height:auto;">
+```
+
+`src` = resmin yolu, `alt` = resim yüklenemezse veya görme engelli kullanıcı için **açıklama**. `alt` yazmak SEO ve erişilebilirlik açısından zorunlu gibidir, alışkanlık edinin.
+
+Resim + link birlikte:
+
+```html
+<a href="buyuk-resim.jpg">
+  <img src="kucuk-resim.jpg" alt="Büyük hali için tıkla" width="100">
+</a>
+```
+
+---
+
+## Adım 5 — Listeler
+
+Üç tür liste vardır:
+
+```html
+<!-- 1. Sırasız liste (madde işaretli) -->
+<ul>
+  <li>Elma</li>
+  <li>Armut</li>
+  <li>Kivi</li>
+</ul>
+
+<!-- 2. Sıralı liste (numaralı) -->
+<ol>
+  <li>Fırını ısınmaya bırak</li>
+  <li>Hamuru hazırla</li>
+  <li>Pişir</li>
+</ol>
+
+<!-- Sıralı listenin ayarları -->
+<ol type="A" start="3">
+  <li>C olur</li>
+  <li>D olur</li>
+</ol>
+
+<!-- 3. Tanım listesi (sözlük gibi) -->
+<dl>
+  <dt>HTML</dt>
+  <dd>Web sayfalarının yapısını tanımlayan işaretleme dili</dd>
+  <dt>CSS</dt>
+  <dd>Web sayfalarının görünümünü belirleyen stil dili</dd>
+</dl>
+```
+
+Listeler **iç içe** de geçebilir — menü yaparken çok işinize yarar:
+
+```html
+<ul>
+  <li>Meyveler
+    <ul>
+      <li>Elma</li>
+      <li>Muz</li>
+    </ul>
+  </li>
+  <li>Sebzeler</li>
+</ul>
+```
+
+---
+
+## Adım 6 — Tablolar
+
+Tablo **gerçek tablosal veri** için vardır (fiyat listesi, ders programı). Sayfa düzeni (layout) için asla kullanılmaz — o iş CSS'in.
+
+```html
+<table border="1">
+  <caption>Haftalık Ders Programı</caption>
+  <thead>
+    <tr>
+      <th>Gün</th>      <th>Ders</th>     <th>Saat</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pazartesi</td> <td>Matematik</td> <td>09:00</td>
+    </tr>
+    <tr>
+      <td>Salı</td>      <td>Fizik</td>     <td>10:00</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="3">Toplam: 2 ders</td>
+    </tr>
+  </tfoot>
+</table>
+```
+
+Yapıyı okuyalım:
+
+- `<table>` → Tablonun kendisi
+- `<tr>` → Bir satır (table row)
+- `<th>` → Başlık hücresi (kalın ve ortalanır)
+- `<td>` → Normal veri hücresi (table data)
+- `<thead>`, `<tbody>`, `<tfoot>` → Tabloyu mantıksal bölümlere ayırır
+- `<caption>` → Tablo başlığı
+
+Hücre birleştirme:
+
+```html
+<td colspan="2">İki sütunu kaplar</td>
+<td rowspan="2">İki satırı kaplar</td>
+```
+
+---
+
+## Adım 7 — Formlar ve Input Türleri
+
+Formlar kullanıcıdan veri toplamanın yoludur. En geniş konu başlığı burası:
+
+```html
+<form action="/kaydet" method="post">
+
+  <!-- Etiket + text input -->
+  <label for="ad">Adınız:</label>
+  <input type="text" id="ad" name="ad" placeholder="Adınızı yazın" required>
+
+  <!-- Şifre -->
+  <label for="sifre">Şifre:</label>
+  <input type="password" id="sifre" name="sifre" minlength="6">
+
+  <!-- E-posta (tarayıcı format kontrolü yapar) -->
+  <input type="email" name="eposta" placeholder="ornek@mail.com" required>
+
+  <!-- Sayı (min/max/step ile sınırlanır) -->
+  <input type="number" name="yas" min="1" max="120">
+
+  <!-- Tarih ve saat -->
+  <input type="date" name="dogum">
+  <input type="time" name="saat">
+
+  <!-- Renk seçici -->
+  <input type="color" name="renk" value="#ff0000">
+
+  <!-- Aralık kaydırıcı -->
+  <input type="range" name="memnuniyet" min="0" max="10">
+
+  <!-- Onay kutusu -->
+  <label>
+    <input type="checkbox" name="kabul" required>
+    Şartları okudum, onaylıyorum
+  </label>
+
+  <!-- Radyo butonları (aynı name = aynı gruptan, tek seçim) -->
+  <input type="radio" name="cinsiyet" value="kadin"> Kadın
+  <input type="radio" name="cinsiyet" value="erkek"> Erkek
+
+  <!-- Dosya seçimi -->
+  <input type="file" name="foto" accept="image/*">
+
+  <!-- Gizli alan (kullanıcı görmez, veri taşır) -->
+  <input type="hidden" name="oturum" value="abc123">
+
+  <!-- Gönder ve sıfırla -->
+  <input type="submit" value="Kaydet">
+  <input type="reset" value="Temizle">
+  <button type="button">Normal buton (form göndermez)</button>
+</form>
+```
+
+Büyük metin alanı:
+
+```html
+<textarea name="mesaj" rows="5" cols="40" placeholder="Mesajınız..."></textarea>
+```
+
+Açılır liste:
+
+```html
+<label for="sehir">Şehir:</label>
+<select id="sehir" name="sehir">
+  <option value="">-- Seçiniz --</option>
+  <option value="34" selected>İstanbul</option>
+  <option value="06">Ankara</option>
+  <option value="35">İzmir</option>
+</select>
+
+<!-- Gruplu seçenekler -->
+<select name="yemek">
+  <optgroup label="Ana Yemek">
+    <option>Kebap</option>
+    <option>Lahmacun</option>
+  </optgroup>
+  <optgroup label="Tatlı">
+    <option>Baklava</option>
+  </optgroup>
+</select>
+```
+
+Kritik kavramlar:
+
+- `name` → Veri sunucuya **bu isimle** gider. Name'siz input'un verisi gönderilmez!
+- `id` → `label for` ile eşleşir; label'a tıklayınca input'a odaklanılır.
+- `required`, `min`, `max`, `minlength` → Tarayıcının kendi doğrulaması (validation). Sunucu tarafı doğrulamanın yerine geçmez, sadece kullanıcıyı erken uyarır.
+- `method="get"` veriyi URL'ye ekler, `method="post"` gizli gövdede taşır (şifre gibi şeyler için post).
+
+---
+
+## Adım 8 — Medya Elemanları
+
+Ses ve video artık eklenti gerektirmez, HTML5 ile yerleşiktir:
+
+```html
+<!-- Ses -->
+<audio controls>
+  <source src="sarki.mp3" type="audio/mpeg">
+  Tarayıcınız ses oynatmayı desteklemiyor.
+</audio>
+
+<!-- Video -->
+<video controls width="640" poster="kapak.jpg">
+  <source src="video.mp4" type="video/mp4">
+  Tarayıcınız video oynatmayı desteklemiyor.
+</video>
+
+<!-- Özellikler: autoplay, muted, loop, controls, preload -->
+<video src="tanitim.mp4" autoplay muted loop></video>
+```
+
+Başka site gömmek (`iframe`):
+
+```html
+<iframe src="https://example.com" width="600" height="400" title="Örnek sayfa"></iframe>
+
+<!-- Örnek: YouTube videosu gömme -->
+<iframe width="560" height="315"
+  src="https://www.youtube.com/embed/VIDEO_ID"
+  allowfullscreen title="Video"></iframe>
+```
+
+`<canvas>` ve `<svg>` de medya/görsel tarafının üyeleridir:
+
+```html
+<canvas id="cizim" width="400" height="300"></canvas>  <!-- JS ile çizilir (bizim voxel oyunu gibi!) -->
+<svg width="100" height="100"><circle cx="50" cy="50" r="40" fill="red" /></svg>  <!-- Vektör, kod ile çizilir -->
+```
+
+---
+
+## Adım 9 — Semantic (Anlamsal) Elemanlar
+
+HTML5'in getirdiği en büyük yenilik: her şey `<div>` olmak zorunda değil. Etiketler **ne anlama geldiğini** söyler:
+
+```html
+<body>
+  <header>
+    <h1>Site Adı</h1>
+    <nav>                      <!-- Menü / navigasyon -->
+      <a href="/">Ana Sayfa</a>
+      <a href="/blog">Blog</a>
+    </nav>
+  </header>
+
+  <main>                       <!-- Sayfanın ana içeriği (tek tane olur) -->
+    <article>                  <!-- Bağımsız içerik: blog yazısı, haber -->
+      <h2>Makale Başlığı</h2>
+      <p>Makale metni...</p>
+      <section>                <!-- İçerikteki tematik bölüm -->
+        <h3>Alt Bölüm</h3>
+        <p>...</p>
+      </section>
+    </article>
+
+    <aside>                    <!-- Yan içerik: ilgili linkler, reklam -->
+      <p>İlgili yazılar...</p>
+    </aside>
+  </main>
+
+  <footer>
+    <p>© 2025 Benim Sitem</p>
+  </footer>
+</body>
+```
+
+Hangi durumda hangisi:
+
+| Etiket | Ne zaman |
+|---|---|
+| `<header>` | Sayfa veya bölüm üstü (logo, başlık) |
+| `<nav>` | Menüler, link grupları |
+| `<main>` | Sayfanın ana benzersiz içeriği |
+| `<article>` | Tek başına anlam taşıyan içerik |
+| `<section>` | İçeriğin tematik alt bölümü |
+| `<aside>` | Ana içerikle yan yana duran ek içerik |
+| `<footer>` | Alt bilgi, telif, iletişim |
+| `<figure>` + `<figcaption>` | Başlıklı görsel/grafik |
+
+`<figure>` örneği:
+
+```html
+<figure>
+  <img src="grafik.png" alt="2024 satış grafiği">
+  <figcaption>Şekil 1: Yıllık satış artışı</figcaption>
+</figure>
+```
+
+Neden semantic? Üç sebep: **erişilebilirlik** (ekran okuyucular yapıyı anlar), **SEO** (arama motorları içeriği doğru tartar), **okunabilir kod** (her şey div olunca kimse bir şey anlamaz).
+
+---
+
+## Adım 10 — Global Attribute'lar
+
+Her etikette kullanılabilen ortak öznitelikler:
+
+```html
+<!-- id: Benzersiz kimlik. Sayfada BİR tane olur -->
+<div id="menu"></div>
+
+<!-- class: Grup kimliği. Aynı class'tan istediğiniz kadar -->
+<p class="onemli vurgulu">Birden fazla class boşlukla yazılır</p>
+
+<!-- style: Doğrudan CSS (küçük şeyler için; büyük stilde ayrı dosya) -->
+<p style="color: red; font-size: 18px;">Kırmızı yazı</p>
+
+<!-- title: Üzerine gelince çıkan ipucu -->
+<button title="Kaydetmek için tıkla">Kaydet</button>
+
+<!-- hidden: Elemanı gizler -->
+<p hidden>Bunu kimse göremez</p>
+
+<!-- contenteditable: Tarayıcıda düzenlenebilir -->
+<div contenteditable="true">Burayı düzenleyebilirsin!</div>
+
+<!-- data-*: Kendi verini elemente yapıştır (JS için çok kullanışlı) -->
+<div data-oyuncu-adi="Ahmet" data-seviye="42">Oyuncu kartı</div>
+
+<!-- draggable ve tabindex gibi davranış attribute'ları -->
+<div draggable="true">Sürüklenebilirim</div>
+```
+
+`id` ve `class` farkını netleştirelim: `id` bir TC kimlik numarası gibidir — tektir ve tek kişiye aittir. `class` bir üniforma gibidir — aynı kıyafeti isteyen herkes giyebilir. CSS ve JavaScript'te en çok `class` kullanılır.
+
+---
+
+## Adım 11 — Yorumlar, Entity'ler ve Küçük Detaylar
+
+Yorumlar tarayıcıda görünmez, kodu açıklamak için kullanılır:
+
+```html
+<!-- Bu bir yorum, ekranda görünmez -->
+<!--
+  Çok satırlı
+  yorum da olur
+-->
+```
+
+Bazı karakterler HTML'de özel anlam taşıdığı için doğrudan yazılamaz. Bunlara **entity** denir, `&isim;` veya `&#kod;` şeklinde yazılır:
+
+```html
+<p>5 &lt; 10 ve 10 &gt; 5</p>        <!-- < ve > -->
+<p>Ben &amp; Sen</p>                  <!-- & -->
+<p>Tırnak: &quot;kelime&quot;</p>     <!-- " -->
+<p>Telif: &copy; 2025</p>             <!-- © -->
+<p>Boşluk koru: kelime&nbsp;&nbsp;kelime</p>  <!-- kırılmayan boşluk -->
+```
+
+Bir de içerik boş element kavramını netleştirelim. HTML'de her şey "kutu içinde kutu" mantığıyla **iç içe** geçer ve kapatma sırası ters olmalıdır:
+
+```html
+<!-- DOĞRU: son açılan ilk kapanır -->
+<p><strong><em>Metin</em></strong></p>
+
+<!-- YANLIŞ: kesişen etiketler -->
+<p><strong><em>Metin</strong></em></p>
+```
+
+Ve boş elementler (`<br>`, `<img>`, `<input>`) hariç **her etiket kapatılmalıdır**. Tarayıcı unutulan etiketleri bazen tahmin edip kurtarır ama her zaman doğru tahmin etmez.
+
+---
+
+## Adım 12 — Hepsini Birleştiren Tam Örnek
+
+Öğrendiklerimizin çoğunu kullanan tek dosyalık bir sayfa. Kaydedip tarayıcıda açabilirsiniz:
+
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HTML bileşenlerini gösteren örnek sayfa">
+  <title>Kahve Dükkanı — Örnek Sayfa</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; }
+    header, footer { background: #4b2e1e; color: #fff; padding: 16px; }
+    nav a { color: #fff; margin-right: 12px; }
+    main { padding: 20px; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #999; padding: 6px 12px; }
+    fieldset { margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>☕ Kahve Dükkanı</h1>
+    <nav>
+      <a href="#menu">Menü</a>
+      <a href="#siparis">Sipariş</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="menu">
+      <h2>Menümüz</h2>
+
+      <h3>Sıcak İçecekler</h3>
+      <ul>
+        <li>Türk kahvesi</li>
+        <li>Filtre kahve</li>
+        <li>Sıcak çikolata</li>
+      </ul>
+
+      <h3>Fiyat Listesi</h3>
+      <table>
+        <thead>
+          <tr><th>Ürün</th><th>Küçük</th><th>Büyük</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Türk kahvesi</td><td>30₺</td><td>—</td></tr>
+          <tr><td>Filtre kahve</td><td>40₺</td><td>55₺</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="siparis">
+      <h2>Sipariş Formu</h2>
+      <form action="/siparis" method="post">
+        <fieldset>
+          <legend>İletişim Bilgileri</legend>
+          <label for="ad">Ad:</label>
+          <input type="text" id="ad" name="ad" required>
+          <label for="mail">E-posta:</label>
+          <input type="email" id="mail" name="mail" required>
+        </fieldset>
+
+        <fieldset>
+          <legend>Sipariş</legend>
+          <label for="urun">Ürün:</label>
+          <select id="urun" name="urun">
+            <option value="turk">Türk kahvesi</option>
+            <option value="filtre">Filtre kahve</option>
+          </select>
+
+          <label>
+            <input type="checkbox" name="sekerli"> Şekerli olsun
+          </label>
+
+          <br>
+          <textarea name="not" rows="3" placeholder="Ek notunuz..."></textarea>
+        </fieldset>
+
+        <button type="submit">Sipariş Ver</button>
+      </form>
+    </section>
+
+    <aside>
+      <h3>Bugünün Önerisi</h3>
+      <figure>
+        <img src="kahve.jpg" alt="Süt köpüklü latte" width="200">
+        <figcaption>Latte art ustası: 40₺</figcaption>
+      </figure>
+    </aside>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Kahve Dükkanı &mdash; <a href="mailto:info@kahve.com">Bize yazın</a></p>
+  </footer>
+
+</body>
+</html>
+```
+
+Bu sayfada sırasıyla şunları kullandık: iskelet, head meta'ları, dahili CSS, semantic yapı (`header/nav/main/section/aside/footer`), başlıklar, listeler, tablo, form (input, select, checkbox, textarea, fieldset), figure, görsel, link ve entity.
+
+---
+
+## Test / Özet
+
+**Nasıl çalıştırılır:** Herhangi bir örneği `deneme.html` olarak kaydedin ve tarayıcıda açın. Kurulum gerekmez.
+
+**Öğrenilen temel bileşenler:**
+- Belge iskeleti: `doctype`, `html`, `head`, `body`
+- Head içerikleri: `meta`, `title`, `link`, `style`, `script`
+- Metin: `h1–h6`, `p`, `strong/em` vs `b/i`, `br`, `hr`, `pre`, `code`
+- Link ve görsel: `a` (href, target, anchor), `img` (src, alt)
+- Listeler: `ul`, `ol`, `dl`
+- Tablo: `table`, `tr`, `th`, `td`, `colspan/rowspan`
+- Formlar: tüm `input` türleri, `select`, `textarea`, `label`, `button`, doğrulama attribute'ları
+- Medya: `audio`, `video`, `iframe`, `canvas`, `svg`
+- Semantic: `header`, `nav`, `main`, `article`, `section`, `aside`, `footer`, `figure`
+- Global attribute'lar: `id`, `class`, `style`, `data-*`, `hidden`, `contenteditable`
+<|endoftext|>
+Şimdi Three.js ile Minecraft benzeri bir voxel oyun yapacağız.
+
+## Plan
+
+1. Three.js'i CDN üzerinden yüklemek
+2. 3D sahne, kamera ve renderer oluşturmak
+3. Voxel/blok sistemi (veri yapısı + render)
+4. Basit noise tabanlı arazi üretimi (çim, toprak, taş, kum + ağaçlar)
+5. FPS oyuncu sistemi (WASD, mouse, zıplama, çarpışma)
+6. Blok kırma / yerleştirme (voxel raycast)
+7. Işıklandırma, gökyüzü, crosshair, hotbar/HUD
+8. Her şeyi tek `index.html` dosyasında birleştirmek
+
+---
+
+## Adım 1 — Temel sahne kurulumu
+
+Three.js'i importmap ile modül olarak yüklüyorum. Sahne, perspektif kamera ve renderer oluşturup gökyüzü rengini ve sisi ayarlıyorum. Sis, dünyanın sonunun "kaybolmasını" sağlayarak düzgün bir görünüm verir.
+
+```js
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9ed2ff);
+scene.fog = new THREE.Fog(0x9ed2ff, 30, 90);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+```
+
+## Adım 2 — Voxel / blok sistemi
+
+Dünyayı `Map` ile temsil ediyorum: anahtar `"x,y,z"`, değer blok türü. Bu, "oyun mantığı" ile "görsel" ayırır; render için ise her blok türü için **bir** `InstancedMesh` kullanıyorum — binlerce blok tek draw call'da çizilir, dünya değişince mesh'ler yeniden kurulur.
+
+```js
+const world = new Map();                       // "x,y,z" -> blok türü
+const key = (x,y,z) => `${x},${y},${z}`;
+const getBlock = (x,y,z) => world.get(key(x,y,z)) || 0;
+
+function setBlock(x,y,z,t){
+  if (t) world.set(key(x,y,z), t); else world.delete(key(x,y,z));
+  rebuildMeshes();                             // görüntüyü tazele
+}
+```
+
+Her türün kendi rengi var; `InstancedMesh` üzerinde `setColorAt` ile bloklara hafif ton varyasyonu veriyorum, böylece düz tek renk yerine doğal bir doku hissi oluşuyor.
+
+## Adım 3 — Arazi üretimi
+
+Deterministik bir **value noise** yazıyorum (hash + iki oktav): her sütunun yüksekliği bu noise'dan geliyor. Alçak bölgeler kum, üst yüzey çim, altta 2 kat toprak, en altta taş. Ayrıca rastgele çim sütunlarına gövde + yaprak kütlesinden oluşan ağaçlar ekliyorum.
+
+```js
+function hash2(x, z){ ... }        // deterministik 0..1 sayı üretir
+function noise2(x, z){ ... }       // hash'lerin yumuşak interpolasyonu
+
+const h = Math.floor(5 + noise2(x*0.07, z*0.07)*9 + noise2(x*0.2, z*0.2)*3);
+// y === h -> çim/kum, y >= h-2 -> toprak, aksi halde taş
+```
+
+Aynı hash fonksiyonu ağaç yerleşimi ve renk varyasyonu için de kullanılıyor — dünya her yenilenmede aynı, yani tutarlı.
+
+## Adım 4 — Oyuncu: FPS kamera, hareket, çarpışma
+
+Pointer Lock API'sini kendim yönetiyorum (ekstra kütüphane yok). Kamera `YXZ` Euler sırasıyla döner; yaw/pitch mouse movement'tan gelir.
+
+Çarpışma: oyuncu bir AABB (0.6 × 1.8) ve hareket **eksen eksen** uygulanır. Her eksende hareket sonrası oyuncu kutusu katı bir blokla kesişiyorsa o eksendeki hareket geri alınır. Bu klasik yöntem, blokların içine girmeyi engeller ve duvarlarda kaymayı sağlar. Yerçekimi ve zıplama sadece Y eksenine etki eder.
+
+```js
+function collides(px, py, pz){
+  const w = player.width / 2, e = 0.001;
+  for (let x = Math.floor(px - w); x <= Math.floor(px + w - e); x++)
+    for (let z = Math.floor(pz - w); z <= Math.floor(pz + w - e); z++)
+      for (let y = Math.floor(py); y <= Math.floor(py + player.height - e); y++)
+        if (getBlock(x, y, z)) return true;
+  return false;
+}
+// hareket: pos.x += vel.x*dt -> çarpışıyorsa geri al; sonra z, sonra y
+```
+
+## Adım 5 — Blok kırma / yerleştirme
+
+Kameradan bakış doğrultusunda ray'i küçük adımlarla ilerletip ilk dolu voxel'i arıyorum (basit voxel raycast). Kırdığımızda o voxel silinir; yerleştirirken ray'in **vurduğu bloktan bir önceki boş voxel'i** kullanıyoruz ve yeni bloğun oyuncuyla kesişmediğini kontrol ediyoruz. Hedef bloğu göstermek için çerçeveli bir highlight kutusu her frame güncellenir.
+
+```js
+function raycastVoxel(maxDist = 6){
+  const dir = camera.getWorldDirection(new THREE.Vector3());
+  let last = null;
+  for (let t = 0; t < maxDist; t += 0.02){
+    const p = camera.position.clone().addScaledVector(dir, t);
+    const b = [Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)];
+    if (getBlock(...b)) return { x:b[0], y:b[1], z:b[2], prev:last };
+    last = b;
+  }
+  return null;
+}
+// Sol tık -> setBlock(hit, 0)   |   Sağ tık -> setBlock(hit.prev, seçiliTür)
+```
+
+## Adım 6 — Atmosfer ve HUD
+
+Yarımküre (ambient benzeri) + gölgeli yönlü "güneş" ışığı ekliyorum. Crosshair ve hotbar saf CSS; hotbar'da 1–7 tuşlarıyla yerleştirilecek blok seçilir. Pointer lock kapanınca menü katmanı geri gelir.
+
+---
+
+Şimdi bütün parçaları tek bir `index.html` dosyasında birleştiriyorum.
+
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>VoxelCraft — Three.js Voxel Oyunu</title>
+<style>
+  html, body { margin:0; overflow:hidden; font-family: 'Courier New', monospace; }
+  #overlay {
+    position:fixed; inset:0; z-index:20; cursor:pointer;
+    background:rgba(10,15,25,.78); color:#fff;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  }
+  #overlay h1 { margin:0; font-size:34px; letter-spacing:3px; }
+  #overlay p  { margin:2px; font-size:14px; opacity:.85; }
+  #crosshair {
+    position:fixed; left:50%; top:50%; transform:translate(-50%,-52%);
+    color:#fff; font-size:22px; z-index:10; pointer-events:none; text-shadow:0 0 3px #000;
+  }
+  #hotbar { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); display:flex; gap:6px; z-index:10; }
+  .slot {
+    width:46px; height:46px; border:2px solid rgba(255,255,255,.45); border-radius:4px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#fff; font-size:9px; text-shadow:0 0 2px #000; box-sizing:border-box;
+  }
+  .slot .sw { width:22px; height:22px; border-radius:3px; margin-bottom:2px; }
+  .slot.active { border-color:#fff; background:rgba(255,255,255,.18); }
+  #info { position:fixed; top:10px; left:12px; color:#fff; font-size:13px; z-index:10; text-shadow:0 0 3px #000; }
+</style>
+</head>
+<body>
+
+<div id="crosshair">+</div>
+<div id="info"></div>
+<div id="hotbar"></div>
+<div id="overlay">
+  <h1>VOXELCRAFT</h1>
+  <p>Başlamak için tıkla</p>
+  <p>WASD: hareket &nbsp;|&nbsp; Space: zıpla &nbsp;|&nbsp; Shift: koş</p>
+  <p>Sol tık: blok kır &nbsp;|&nbsp; Sağ tık: blok koy &nbsp;|&nbsp; 1-7: blok seç</p>
+  <p>ESC: menüye dön</p>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============ 1) SAHNE, KAMERA, RENDERER ============ */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9ed2ff);
+scene.fog = new THREE.Fog(0x9ed2ff, 30, 90);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 200);
+camera.rotation.order = 'YXZ';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ============ 2) IŞIKLANDIRMA ============ */
+scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x8a7a5a, 0.75));
+
+const sun = new THREE.DirectionalLight(0xfff2d0, 1.4);
+sun.position.set(50, 70, 25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left:-45, right:45, top:45, bottom:-45, near:1, far:200 });
+scene.add(sun);
+
+/* ============ 3) BLOK TANIMLARI ============ */
+const BLOCKS = {
+  1: { name:'Çim',    color:0x6abe30 },
+  2: { name:'Toprak', color:0x8a5a32 },
+  3: { name:'Taş',    color:0x8f8f8f },
+  4: { name:'Kum',    color:0xe0d191 },
+  5: { name:'Odun',   color:0x6b4a2b },
+  6: { name:'Yaprak', color:0x3e8a2f },
+  7: { name:'Tahta',  color:0xb08a5a },
+};
+
+/* ============ 4) DÜNYA VERİSİ (voxel haritası) ============ */
+const SIZE = 48, MAX_H = 24;
+const world = new Map();
+const key = (x,y,z) => `${x},${y},${z}`;
+const getBlock = (x,y,z) => world.get(key(x,y,z)) || 0;
+
+let worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+const blockGeo = new THREE.BoxGeometry(1, 1, 1);
+const materials = {};
+for (const t in BLOCKS) materials[t] = new THREE.MeshLambertMaterial({ color: BLOCKS[t].color });
+
+// Mesh'leri yeniden kur: her tür için bir InstancedMesh
+function rebuildMeshes(){
+  worldGroup.children.forEach(m => m.dispose());
+  worldGroup.clear();
+
+  const byType = {};
+  for (const [k, t] of world){
+    const [x, y, z] = k.split(',').map(Number);
+    (byType[t] ??= []).push(x, y, z);
+  }
+
+  const m = new THREE.Matrix4(), c = new THREE.Color();
+  for (const t in byType){
+    const a = byType[t], count = a.length / 3;
+    const mesh = new THREE.InstancedMesh(blockGeo, materials[t], count);
+    mesh.castShadow = mesh.receiveShadow = true;
+    for (let i = 0; i < count; i++){
+      const x = a[i*3], y = a[i*3+1], z = a[i*3+2];
+      m.setPosition(x + 0.5, y + 0.5, z + 0.5);
+      mesh.setMatrixAt(i, m);
+      // blok başına hafif ton varyasyonu -> daha doğal görünüm
+      const v = 0.92 + hash2(x*3 + z*7, y*11) * 0.13;
+      mesh.setColorAt(i, c.setHex(BLOCKS[t].color).multiplyScalar(v));
+    }
+    worldGroup.add(mesh);
+  }
+}
+
+function setBlock(x, y, z, t){
+  if (t) world.set(key(x,y,z), t); else world.delete(key(x,y,z));
+  rebuildMeshes();
+}
+
+/* ============ 5) NOISE + ARAZİ ÜRETİMİ ============ */
+function hash2(x, z){
+  let h = (x|0) * 374761393 + (z|0) * 668265263;
+  h = ((h ^ (h >> 13)) * 1274126177) | 0;
+  return (((h ^ (h >> 16)) >>> 0)) / 4294967295;
+}
+const smooth = t => t * t * (3 - 2 * t);
+function noise2(x, z){
+  const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+  const a = hash2(xi, zi),   b = hash2(xi+1, zi),
+        c = hash2(xi, zi+1), d = hash2(xi+1, zi+1);
+  const u = smooth(xf), v = smooth(zf);
+  return a + (b-a)*u + (c-a)*v + (a-b-c+d)*u*v;
+}
+
+function generateWorld(){
+  world.clear();
+  const heights = new Int8Array(SIZE * SIZE);
+
+  for (let x = 0; x < SIZE; x++)
+  for (let z = 0; z < SIZE; z++){
+    const h = Math.max(2, Math.min(MAX_H - 8,
+      Math.floor(5 + noise2(x*0.07 + 100, z*0.07 + 100) * 9 + noise2(x*0.2, z*0.2) * 3)));
+    heights[x*SIZE + z] = h;
+    for (let y = 0; y <= h; y++){
+      let t;
+      if      (y === 0)     t = 3;                 // taban: taş
+      else if (y === h)     t = h <= 6 ? 4 : 1;    // alçak yerde kum, üstte çim
+      else if (y >= h - 2)  t = h <= 6 ? 4 : 2;    // hemen altta toprak/kum
+      else                  t = 3;                 // derinlerde taş
+      world.set(key(x,y,z), t);
+    }
+  }
+
+  // Ağaçlar
+  for (let x = 2; x < SIZE-2; x++)
+  for (let z = 2; z < SIZE-2; z++){
+    const h = heights[x*SIZE + z];
+    if (h <= 6 || getBlock(x,h,z) !== 1) continue;
+    if (hash2(x*13 + 7, z*17 + 3) < 0.985) continue;
+
+    const th = 4 + Math.floor(hash2(x, z) * 2);
+    for (let i = 1; i <= th; i++) world.set(key(x, h+i, z), 5);
+    for (let dx = -2; dx <= 2; dx++)
+    for (let dz = -2; dz <= 2; dz++)
+    for (let dy = th-1; dy <= th+1; dy++){
+      if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+      if (dy === th+1 && (Math.abs(dx) > 1 || Math.abs(dz) > 1)) continue;
+      const k = key(x+dx, h+dy, z+dz);
+      if (!world.has(k)) world.set(k, 6);
+    }
+  }
+  rebuildMeshes();
+}
+
+/* ============ 6) OYUNCU + ÇARPIŞMA ============ */
+const player = {
+  pos: new THREE.Vector3(), vel: new THREE.Vector3(),
+  onGround: false, width: 0.6, height: 1.8, eye: 1.62
+};
+const GRAVITY = 25, JUMP = 8.2;
+
+function collides(px, py, pz){
+  const w = player.width/2, e = 0.001;
+  for (let x = Math.floor(px - w); x <= Math.floor(px + w - e); x++)
+  for (let z = Math.floor(pz - w); z <= Math.floor(pz + w - e); z++)
+  for (let y = Math.floor(py); y <= Math.floor(py + player.height - e); y++)
+    if (getBlock(x, y, z)) return true;
+  return false;
+}
+
+function spawnPlayer(){
+  const cx = SIZE/2 + 0.5, cz = SIZE/2 + 0.5;
+  let y = MAX_H;
+  player.pos.set(cx, y, cz);
+  while (collides(cx, y, cz) && y < MAX_H + 20) y += 1;   // ağaç vs. varsa yüksel
+  player.pos.y = y;
+  player.vel.set(0, 0, 0);
+}
+
+/* ============ 7) GİRİŞ: KLAVYE + MOUSE ============ */
+const keys = {};
+let locked = false, yaw = 0, pitch = 0, selected = 1;
+
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  const n = parseInt(e.key);
+  if (n >= 1 && n <= 7) selectSlot(n);
+});
+addEventListener('keyup', e => keys[e.code] = false);
+
+addEventListener('mousemove', e => {
+  if (!locked) return;
+  yaw   -= e.movementX * 0.0025;
+  pitch -= e.movementY * 0.0025;
+  pitch = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, pitch));
+});
+
+const overlay = document.getElementById('overlay');
+overlay.addEventListener('click', () => renderer.domElement.requestPointerLock());
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === renderer.domElement;
+  overlay.style.display = locked ? 'none' : 'flex';
+});
+addEventListener('contextmenu', e => e.preventDefault());
+
+/* ============ 8) BLOK ETKİLEŞİMİ (voxel raycast) ============ */
+function raycastVoxel(maxDist = 6){
+  const dir = camera.getWorldDirection(new THREE.Vector3());
+  let last = null;
+  for (let t = 0.05; t < maxDist; t += 0.02){
+    const p = camera.position.clone().addScaledVector(dir, t);
+    const b = [Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)];
+    if (getBlock(...b)) return { x:b[0], y:b[1], z:b[2], prev:last };
+    last = b;
+  }
+  return null;
+}
+
+function blockIntersectsPlayer(bx, by, bz){
+  const w = player.width/2, p = player.pos;
+  return bx+1 > p.x-w && bx < p.x+w &&
+         bz+1 > p.z-w && bz < p.z+w &&
+         by+1 > p.y   && by < p.y + player.height;
+}
+
+addEventListener('mousedown', e => {
+  if (!locked) return;
+  const hit = raycastVoxel();
+  if (!hit) return;
+  if (e.button === 0 && hit.y > 0) setBlock(hit.x, hit.y, hit.z, 0);        // kır (taban hariç)
+  if (e.button === 2 && hit.prev && !blockIntersectsPlayer(...hit.prev))
+    setBlock(...hit.prev, selected);                                        // koy
+});
+
+// Hedef bloğu vurgulayan çerçeve
+const highlight = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002)),
+  new THREE.LineBasicMaterial({ color: 0x111111 })
+);
+highlight.visible = false;
+scene.add(highlight);
+
+/* ============ 9) HUD: HOTBAR + BİLGİ ============ */
+const hotbar = document.getElementById('hotbar');
+const info = document.getElementById('info');
+for (let t = 1; t <= 7; t++){
+  const s = document.createElement('div');
+  s.className = 'slot' + (t === 1 ? ' active' : '');
+  s.innerHTML = `<div class="sw" style="background:#${BLOCKS[t].color.toString(16).padStart(6,'0')}"></div>${BLOCKS[t].name}`;
+  s.addEventListener('click', () => selectSlot(t));
+  hotbar.appendChild(s);
+}
+function selectSlot(t){
+  selected = t;
+  [...hotbar.children].forEach((el, i) => el.classList.toggle('active', i === t-1));
+}
+
+/* ============ 10) ANA DÖNGÜ ============ */
+generateWorld();
+spawnPlayer();
+
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  // --- hareket girdisi (yaw'a göre döndür)
+  let ix = 0, iz = 0;
+  if (locked){
+    if (keys['KeyW']) iz -= 1;
+    if (keys['KeyS']) iz += 1;
+    if (keys['KeyA']) ix -= 1;
+    if (keys['KeyD']) ix += 1;
+  }
+  const len = Math.hypot(ix, iz) || 1;
+  const speed = keys['ShiftLeft'] ? 7 : 4.3;
+  const sin = Math.sin(yaw), cos = Math.cos(yaw);
+  player.vel.x = ((ix * cos - iz * sin) / len) * speed;
+  player.vel.z = ((-ix * sin - iz * cos) / len) * speed * -1 * -1; // düzelt: aşağıda açık form
+
+  // Not: basitlik için ileri yön = (-sin(yaw), 0, -cos(yaw)), sağ = (cos(yaw), 0, -sin(yaw))
+  const f = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
+  const r = (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0);
+  const fl = Math.hypot(f, r) || 1;
+  player.vel.x = (-sin * f + cos * r) / fl * speed;
+  player.vel.z = (-cos * f - sin * r) / fl * speed;
+
+  // --- dikey hareket
+  player.vel.y -= GRAVITY * dt;
+  if (locked && keys['Space'] && player.onGround) player.vel.y = JUMP;
+
+  // --- eksene ayrık çarpışma çözümü
+  player.pos.x += player.vel.x * dt;
+  if (collides(player.pos.x, player.pos.y, player.pos.z)){
+    player.pos.x -= player.vel.x * dt; player.vel.x = 0;
+  }
+  player.pos.z += player.vel.z * dt;
+  if (collides(player.pos.x, player.pos.y, player.pos.z)){
+    player.pos.z -= player.vel.z * dt; player.vel.z = 0;
+  }
+  player.pos.y += player.vel.y * dt;
+  player.onGround = false;
+  if (collides(player.pos.x, player.pos.y, player.pos.z)){
+    if (player.vel.y < 0) player.onGround = true;
+    player.pos.y -= player.vel.y * dt; player.vel.y = 0;
+  }
+
+  // --- kamera
+  camera.position.set(player.pos.x, player.pos.y + player.eye, player.pos.z);
+  camera.rotation.set(pitch, yaw, 0);
+
+  // --- hedef bloğu vurgula
+  const hit = locked ? raycastVoxel() : null;
+  highlight.visible = !!hit;
+  if (hit) highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
+
+  // --- HUD
+  info.textContent = `Seçili: ${BLOCKS[selected].name}  |  XYZ: ` +
+    `${player.pos.x.toFixed(0)}, ${player.pos.y.toFixed(0)}, ${player.pos.z.toFixed(0)}`;
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
+```
+
+**Not:** Yukarıdaki döngüde hareket hesabını yazarken önce genel formülü, sonra açık ve doğru olan `f/r` tabanlı formülü kullandım; `vel.x/z` son atanan satırlar geçerlidir (ilk blok etkisizdir, gerçek kodda onu silmiş sayın). Birleşik dosyada karışıklık olmaması için düzeltilmiş hali:
+
+```js
+  const f = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
+  const r = (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0);
+  const fl = Math.hypot(f, r) || 1;
+  const speed = keys['ShiftLeft'] ? 7 : 4.3;
+  player.vel.x = (-Math.sin(yaw) * f + Math.cos(yaw) * r) / fl * speed;
+  player.vel.z = (-Math.cos(yaw) * f - Math.sin(yaw) * r) / fl * speed;
+```
+
+(Bu satırları birleşik koddaki `ix/iz` bloğunun yerine koyun — ya da aşağıdaki gibi temiz sürümü kullanın.)
+
+Aşağıda, aynı dosyanın **temizlenmiş ve doğrudan çalıştırılabilir** son sürümü verilmiştir; test için bunu kullanın:
+
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>VoxelCraft — Three.js Voxel Oyunu</title>
+<style>
+  html, body { margin:0; overflow:hidden; font-family:'Courier New', monospace; }
+  #overlay { position:fixed; inset:0; z-index:20; cursor:pointer; background:rgba(10,15,25,.78);
+    color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; }
+  #overlay h1 { margin:0; font-size:34px; letter-spacing:3px; }
+  #overlay p { margin:2px; font-size:14px; opacity:.85; }
+  #crosshair { position:fixed; left:50%; top:50%; transform:translate(-50%,-52%); color:#fff;
+    font-size:22px; z-index:10; pointer-events:none; text-shadow:0 0 3px #000; }
+  #hotbar { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); display:flex; gap:6px; z-index:10; }
+  .slot { width:46px; height:46px; border:2px solid rgba(255,255,255,.45); border-radius:4px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#fff; font-size:9px; text-shadow:0 0 2px #000; box-sizing:border-box; cursor:pointer; }
+  .slot .sw { width:22px; height:22px; border-radius:3px; margin-bottom:2px; }
+  .slot.active { border-color:#fff; background:rgba(255,255,255,.18); }
+  #info { position:fixed; top:10px; left:12px; color:#fff; font-size:13px; z-index:10; text-shadow:0 0 3px #000; }
+</style>
+</head>
+<body>
+
+<div id="crosshair">+</div>
+<div id="info"></div>
+<div id="hotbar"></div>
+<div id="overlay">
+  <h1>VOXELCRAFT</h1>
+  <p>Başlamak için tıkla</p>
+  <p>WASD: hareket &nbsp;|&nbsp; Space: zıpla &nbsp;|&nbsp; Shift: koş</p>
+  <p>Sol tık: blok kır &nbsp;|&nbsp; Sağ tık: blok koy &nbsp;|&nbsp; 1-7: blok seç</p>
+  <p>ESC: menüye dön</p>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ---------- 1) Sahne, kamera, renderer ---------- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9ed2ff);
+scene.fog = new THREE.Fog(0x9ed2ff, 30, 90);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 200);
+camera.rotation.order = 'YXZ';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------- 2) Işıklandırma ---------- */
+scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x8a7a5a, 0.75));
+
+const sun = new THREE.DirectionalLight(0xfff2d0, 1.4);
+sun.position.set(50, 70, 25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left:-45, right:45, top:45, bottom:-45, near:1, far:200 });
+scene.add(sun);
+
+/* ---------- 3) Blok türleri ---------- */
+const BLOCKS = {
+  1: { name:'Çim',    color:0x6abe30 },
+  2: { name:'Toprak', color:0x8a5a32 },
+  3: { name:'Taş',    color:0x8f8f8f },
+  4: { name:'Kum',    color:0xe0d191 },
+  5: { name:'Odun',   color:0x6b4a2b },
+  6: { name:'Yaprak', color:0x3e8a2f },
+  7: { name:'Tahta',  color:0xb08a5a },
+};
+
+/* ---------- 4) Dünya verisi ---------- */
+const SIZE = 48, MAX_H = 24;
+const world = new Map();                       // "x,y,z" -> blok türü
+const key = (x,y,z) => `${x},${y},${z}`;
+const getBlock = (x,y,z) => world.get(key(x,y,z)) || 0;
+
+let worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+const blockGeo = new THREE.BoxGeometry(1, 1, 1);
+const materials = {};
+for (const t in BLOCKS) materials[t] = new THREE.MeshLambertMaterial({ color: BLOCKS[t].color });
+
+function rebuildMeshes(){                      // her tür için tek InstancedMesh
+  worldGroup.children.forEach(m => m.dispose());
+  worldGroup.clear();
+
+  const byType = {};
+  for (const [k, t] of world){
+    const [x, y, z] = k.split(',').map(Number);
+    (byType[t] ??= []).push(x, y, z);
+  }
+
+  const m = new THREE.Matrix4(), c = new THREE.Color();
+  for (const t in byType){
+    const a = byType[t], count = a.length / 3;
+    const mesh = new THREE.InstancedMesh(blockGeo, materials[t], count);
+    mesh.castShadow = mesh.receiveShadow = true;
+    for (let i = 0; i < count; i++){
+      const x = a[i*3], y = a[i*3+1], z = a[i*3+2];
+      m.setPosition(x + 0.5, y + 0.5, z + 0.5);
+      mesh.setMatrixAt(i, m);
+      const v = 0.92 + hash2(x*3 + z*7, y*11) * 0.13;   // ton varyasyonu
+      mesh.setColorAt(i, c.setHex(BLOCKS[t].color).multiplyScalar(v));
+    }
+    worldGroup.add(mesh);
+  }
+}
+
+function setBlock(x, y, z, t){
+  if (t) world.set(key(x,y,z), t); else world.delete(key(x,y,z));
+  rebuildMeshes();
+}
+
+/* ---------- 5) Deterministik noise ---------- */
+function hash2(x, z){
+  let h = (x|0) * 374761393 + (z|0) * 668265263;
+  h = ((h ^ (h >> 13)) * 1274126177) | 0;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+}
+const smooth = t => t * t * (3 - 2 * t);
+function noise2(x, z){
+  const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+  const a = hash2(xi, zi),   b = hash2(xi+1, zi),
+        c = hash2(xi, zi+1), d = hash2(xi+1, zi+1);
+  const u = smooth(xf), v = smooth(zf);
+  return a + (b-a)*u + (c-a)*v + (a-b-c+d)*u*v;
+}
+
+/* ---------- 6) Arazi üretimi ---------- */
+function generateWorld(){
+  world.clear();
+  const heights = new Int8Array(SIZE * SIZE);
+
+  for (let x = 0; x < SIZE; x++)
+  for (let z = 0; z < SIZE; z++){
+    const h = Math.max(2, Math.min(MAX_H - 8,
+      Math.floor(5 + noise2(x*0.07 + 100, z*0.07 + 100) * 9 + noise2(x*0.2, z*0.2) * 3)));
+    heights[x*SIZE + z] = h;
+    for (let y = 0; y <= h; y++){
+      let t;
+      if      (y === 0)    t = 3;
+      else if (y === h)    t = h <= 6 ? 4 : 1;   // alçakta kum, üstte çim
+      else if (y >= h - 2) t = h <= 6 ? 4 : 2;
+      else                 t = 3;
+      world.set(key(x,y,z), t);
+    }
+  }
+
+  for (let x = 2; x < SIZE-2; x++)               // ağaçlar
+  for (let z = 2; z < SIZE-2; z++){
+    const h = heights[x*SIZE + z];
+    if (h <= 6 || getBlock(x,h,z) !== 1) continue;
+    if (hash2(x*13 + 7, z*17 + 3) < 0.985) continue;
+
+    const th = 4 + Math.floor(hash2(x, z) * 2);
+    for (let i = 1; i <= th; i++) world.set(key(x, h+i, z), 5);
+    for (let dx = -2; dx <= 2; dx++)
+    for (let dz = -2; dz <= 2; dz++)
+    for (let dy = th-1; dy <= th+1; dy++){
+      if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+      if (dy === th+1 && (Math.abs(dx) > 1 || Math.abs(dz) > 1)) continue;
+      const k = key(x+dx, h+dy, z+dz);
+      if (!world.has(k)) world.set(k, 6);
+    }
+  }
+  rebuildMeshes();
+}
+
+/* ---------- 7) Oyuncu ve çarpışma ---------- */
+const player = {
+  pos: new THREE.Vector3(), vel: new THREE.Vector3(),
+  onGround: false, width: 0.6, height: 1.8, eye: 1.62
+};
+const GRAVITY = 25, JUMP = 8.2;
+
+function collides(px, py, pz){
+  const w = player.width/2, e = 0.001;
+  for (let x = Math.floor(px - w); x <= Math.floor(px + w - e); x++)
+  for (let z = Math.floor(pz - w); z <= Math.floor(pz + w - e); z++)
+  for (let y = Math.floor(py); y <= Math.floor(py + player.height - e); y++)
+    if (getBlock(x, y, z)) return true;
+  return false;
+}
+
+function spawnPlayer(){
+  const cx = SIZE/2 + 0.5, cz = SIZE/2 + 0.5;
+  let y = MAX_H;
+  while (collides(cx, y, cz) && y < MAX_H + 20) y += 1;
+  player.pos.set(cx, y, cz);
+  player.vel.set(0, 0, 0);
+}
+
+/* ---------- 8) Girdi: klavye + mouse ---------- */
+const keys = {};
+let locked = false, yaw = 0, pitch = 0, selected = 1;
+
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  const n = parseInt(e.key);
+  if (n >= 1 && n <= 7) selectSlot(n);
+});
+addEventListener('keyup', e => keys[e.code] = false);
+
+addEventListener('mousemove', e => {
+  if (!locked) return;
+  yaw   -= e.movementX * 0.0025;
+  pitch -= e.movementY * 0.0025;
+  pitch = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, pitch));
+});
+
+const overlay = document.getElementById('overlay');
+overlay.addEventListener('click', () => renderer.domElement.requestPointerLock());
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === renderer.domElement;
+  overlay.style.display = locked ? 'none' : 'flex';
+});
+addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- 9) Voxel raycast + blok kır/koy ---------- */
+function raycastVoxel(maxDist = 6){
+  const dir = camera.getWorldDirection(new THREE.Vector3());
+  let last = null;
+  for (let t = 0.05; t < maxDist; t += 0.02){
+    const p = camera.position.clone().addScaledVector(dir, t);
+    const b = [Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)];
+    if (getBlock(...b)) return { x:b[0], y:b[1], z:b[2], prev:last };
+    last = b;
+  }
+  return null;
+}
+
+function blockIntersectsPlayer(bx, by, bz){
+  const w = player.width/2, p = player.pos;
+  return bx+1 > p.x-w && bx < p.x+w &&
+         bz+1 > p.z-w && bz < p.z+w &&
+         by+1 > p.y   && by < p.y + player.height;
+}
+
+addEventListener('mousedown', e => {
+  if (!locked) return;
+  const hit = raycastVoxel();
+  if (!hit) return;
+  if (e.button === 0 && hit.y > 0) setBlock(hit.x, hit.y, hit.z, 0);
+  if (e.button === 2 && hit.prev && !blockIntersectsPlayer(...hit.prev))
+    setBlock(...hit.prev, selected);
+});
+
+const highlight = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002)),
+  new THREE.LineBasicMaterial({ color: 0x111111 })
+);
+highlight.visible = false;
+scene.add(highlight);
+
+/* ---------- 10) HUD ---------- */
+const hotbar = document.getElementById('hotbar');
+const info = document.getElementById('info');
+for (let t = 1; t <= 7; t++){
+  const s = document.createElement('div');
+  s.className = 'slot' + (t === 1 ? ' active' : '');
+  s.innerHTML = `<div class="sw" style="background:#${BLOCKS[t].color.toString(16).padStart(6,'0')}"></div>${BLOCKS[t].name}`;
+  s.addEventListener('click', () => selectSlot(t));
+  hotbar.appendChild(s);
+}
+function selectSlot(t){
+  selected = t;
+  [...hotbar.children].forEach((el, i) => el.classList.toggle('active', i === t-1));
+}
+
+/* ---------- 11) Ana döngü ---------- */
+generateWorld();
+spawnPlayer();
+
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  // hareket girdisi (yaw'a göre döndürülmüş)
+  const f = (keys['KeyW'] && locked ? 1 : 0) - (keys['KeyS'] && locked ? 1 : 0);
+  const r = (keys['KeyD'] && locked ? 1 : 0) - (keys['KeyA'] && locked ? 1 : 0);
+  const fl = Math.hypot(f, r) || 1;
+  const speed = keys['ShiftLeft'] ? 7 : 4.3;
+  player.vel.x = (-Math.sin(yaw) * f + Math.cos(yaw) * r) / fl * speed;
+  player.vel.z = (-Math.cos(yaw) * f - Math.sin(yaw) * r) / fl * speed;
+
+  // yerçekimi + zıplama
+  player.vel.y -= GRAVITY * dt;
+  if (locked && keys['Space'] && player.onGround) player.vel.y = JUMP;
+
+  // eksene ayrık çarpışma çözümü
+  player.pos.x += player.vel.x * dt;
+  if (collides(player.pos.x, player.pos.y, player.pos.z)){ player.pos.x -= player.vel.x*dt; player.vel.x = 0; }
+  player.pos.z += player.vel.z * dt;
+  if (collides(player.pos.x, player.pos.y, player.pos.z)){ player.pos.z -= player.vel.z*dt; player.vel.z = 0; }
+  player.pos.y += player.vel.y * dt;
+  player.onGround = false;
+  if (collides(player.pos.x, player.pos.y, player.pos.z)){
+    if (player.vel.y < 0) player.onGround = true;
+    player.pos.y -= player.vel.y*dt; player.vel.y = 0;
+  }
+
+  camera.position.set(player.pos.x, player.pos.y + player.eye, player.pos.z);
+  camera.rotation.set(pitch, yaw, 0);
+
+  // hedef bloğu vurgula
+  const hit = locked ? raycastVoxel() : null;
+  highlight.visible = !!hit;
+  if (hit) highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
+
+  info.textContent = `Seçili: ${BLOCKS[selected].name}  |  XYZ: ` +
+    `${player.pos.x.toFixed(0)}, ${player.pos.y.toFixed(0)}, ${player.pos.z.toFixed(0)}`;
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
+```
+
+---
+
+## Test
+
+**Nasıl çalıştırılır:** Kodu `index.html` olarak kaydedin ve modern bir tarayıcıda açın (internet gerekli — Three.js CDN'den yüklenir). Sayfaya tıklayarak mouse kilidini başlatın.
+
+**Kontroller:**
+- WASD: hareket, Shift: koşma, Space: zıplama
+- Mouse: bakış
+- Sol tık: blok kır, Sağ tık: blok yerleştir
+- 1–7 (veya hotbar'a tıkla): yerleştirilecek bloğu seç
+- ESC: menüye dön
+
+**Temel özellikler:**
+- Deterministik noise tabanlı engebeli arazi (çim, toprak, taş, kum) + prosedürel ağaçlar
+- Map tabanlı voxel verisi + tür başına `InstancedMesh` render (tek draw call/tür)
+- Eksen bazlı AABB çarpışma, yerçekimi ve zıplama
+- Voxel raycast ile blok kırma/yerleştirme, hedef blok çerçevesi, oyuncu içine yerleştirme koruması
+- Gölgeli güneş + hemisphere ışık, sisli gökyüzü, blok başına ton varyasyonu
+- Crosshair, hotbar, koordinat/seçim HUD'ı, Pointer Lock menüsü
+
+**Bilinen sınırlamalar:**
+- Her blok değişiminde tüm dünya mesh'i yeniden kurulur; küçük dünyalarda sorun değil ama chunk sistemi olmadan ölçeklenmez
+- Raycast sabit adımlı taramadır (DDA değil); çok ince açılarda teorik olarak bir voxel'i atlayabilir
+- Fizik değişken delta zamanlıdır; çok düşük FPS'te hız algısı değişebilir
+- Ses, envanter dayanıklılığı, gün/gece döngüsü ve kalıcı dünya kaydı yoktur
+<|endoftext|>
+Şu an (Eylül 2026 itibariyle) **en güncel stabil sürüm Next.js 16.3.4** — ana 16 sürümü Ekim 2025'te çıktı, o zamandan beri Turbopack artık varsayılan bundler, Cache Components (`use cache` + Partial Pre-Rendering) geldi ve `middleware.ts` yerine `proxy.ts` kullanılıyor【turn4search1】【turn5fetch0】. Hadi tek tek gidelim.
+
+---
+
+## 1. Next.js Nedir, Düz JavaScript'ten / React'ten Farkı Ne?
+
+Şunu netleştirelim: Next.js doğrudan JavaScript'in rakami değil, **React üzerine kurulu bir full-stack framework**. Yani React biliyorsan Next.js sana o React'i üretim kalitesinde web uygulamasına çeviren altyapıyı veriyor【turn1fetch0】.
+
+Düz React (örn. Vite/CRA ile) yaptığında şunları kendin halletmen gerekir:
+- **Routing** → React Router'ı ayrıca kurarsın
+- **SSR/SEO** → sunucu tarafında render, meta tag'ler → hepsi senin dert
+- **Veri çekme** → sadece tarayıcıda çalışır
+- **Backend/API** → ayrı bir Node/Express sunucusu yazarsın
+
+Next.js bunların hepsini **kutudan çıkarken hazır** veriyor【turn1fetch0】:
+
+| Özellik | Next.js'in hediyesi |
+|---|---|
+| Routing | Dosya sistemi tabanlı (klasör aç = route aç) |
+| Render | SSR, SSG, ISR, Streaming — hepsi built-in |
+| Optimizasyon | `next/image`, `next/font`, script'ler otomatik optimize |
+| Backend | Route Handlers (`route.ts`) ve Server Actions ile API yazma |
+| Caching | `use cache` directive ile explicit, esnek cache |
+
+Yani JS'ten farkı değil aslında — JS + React üstüne ** Production-ready bir çatı**.
+
+---
+
+## 2. App Router vs Pages Router — Hangisini Öğrenmeliyim?
+
+Next.js'in iki router'ı var, kısaca bilmen lazım çünkü bazı eski projelerde hâlâ Pages Router görürsün【turn0search5】【turn0search9】:
+
+- **Pages Router (eski)** → `pages/` klasörü, Next.js 12'ye kadar standarttı. Klasik React gibi çalışıyordu, her şey client-side hydration ile geliyordu.
+- **App Router (yeni, önerilen)** → `app/` klasörü, Next.js 13'ten itibaren geldi ve **React Server Components** üzerine kurulu. Artık standart bu.
+
+**Yeni proje açıyorsan %100 App Router'a gir.** Bu yazının geri kalanı App Router üzerinden gidecek.
+
+---
+
+## 3. Kurulum — 2 Dakikada Proje Ayağa Kaldır
+
+Terminali aç, şunu çalıştır:
+
+```bash
+npx create-next-app@latest
+```
+
+Sana sorular soracak, şöyle cevap ver【turn4search1】:
+
+```
+✔ What is your project named? … my-app
+✔ Would you like to use TypeScript? … Yes
+✔ Would you like to use ESLint? … Yes
+✔ Would you like to use Tailwind CSS? … Yes
+✔ Would you like your code inside a `src/` directory? … Yes
+✔ Would you like to use App Router? (recommended) … Yes
+✔ Would you like to use Turbopack for `next dev`? … Yes
+✔ Would you like to customize the import alias? … No
+```
+
+TypeScript + Tailwind seç, **Turbopack'i evet** de — Next 16'da artık stabil ve build'ler **2-5x, Fast Refresh 5-10x hızlı**【turn5fetch0】.
+
+Sonra:
+
+```bash
+cd my-app
+npm run dev
+```
+
+`http://localhost:3000`'de çalışıyor olman lazım. Bitti, artık developer'sın reis 🎉
+
+---
+
+## 4. Klasör Yapısı — Kritik Dosyalar
+
+`create-next-app` sonrası klasör şuna benziyor【turn1fetch1】【turn3fetch0】:
+
+```
+my-app/
+├── src/
+│   └── app/                 ← BURASI App Router, her şey burada
+│       ├── layout.tsx       ← ROOT LAYOUT: tüm sayfaları saran ortak UI
+│       ├── page.tsx         ← "/" route'u (ana sayfa)
+│       ├── globals.css      ← Tailwind import'u burada
+│       ├── not-found.tsx    ← 404 sayfası
+│       └── error.tsx        ← Error boundary
+├── public/                  ← Görseller, fontlar (static asset)
+├── next.config.ts           ← Next.js config
+├── package.json
+└── tsconfig.json
+```
+
+### App Router'ın özel dosya isimleri
+
+Bunlar **isim olarak özel**, değiştiremezsin, Next.js tanıyor【turn3fetch0】:
+
+| Dosya | Ne işe yarar |
+|---|---|
+| `page.tsx` | Route'u public yapar, UI render eder |
+| `layout.tsx` | Alt route'ları saran ortak UI (header, sidebar vs.) |
+| `loading.tsx` | Bu route yüklenirken otomatik skeleton gösterir (Suspense) |
+| `error.tsx` | Bu route'da hata olursa gösterilir |
+| `not-found.tsx` | 404 için |
+| `route.ts` | API endpoint (GET, POST vs.) — UI değil |
+| `template.tsx` | Layout gibi ama her navigasyonda re-render olur |
+
+### Nested routing — klasör = URL
+
+Klasör açmak yeni bir route demek:
+
+```
+app/
+├── page.tsx            → URL: /
+├── blog/
+│   ├── page.tsx        → URL: /blog
+│   └── [slug]/
+│       └── page.tsx    → URL: /blog/herhangi-bir-slug (dinamik)
+└── about/
+    └── page.tsx        → URL: /about
+```
+
+Köşeli parantezli klasör (`[slug]`) **dinamik route**, URL'den parametre çekmeni sağlar.
+
+---
+
+## 5. Server Component vs Client Component — En Kritik Konu
+
+Burası App Router'ın kalbi, dikkatli oku. **Default olarak Next.js'te TÜM component'ler Server Component'tir.**
+
+**Server Component** ne demek?
+- Sadece **sunucuda** render edilir, HTML olarak browser'a gelir
+- İçinde `useState`, `useEffect`, `onClick` gibi interaktif şeyler **kullanamazsın**
+- Ama `async` olabilir, doğrudan DB'ye/API'ye bağlanabilir — bunun için hiç ekstra şey yapmana gerek yok
+- Browser'a JS gönderilmez → daha hızlı, daha az bundle
+
+**Client Component** ne demek?
+- Dosyanın en üstüne `"use client"` yazarsın
+- İnteraktif olabilir (state, event, browser API'leri)
+- Hydration edilir, browser'da da çalışır
+
+### Ne zaman hangisi?
+
+```
+Interaktif mi? (buton, form, dropdown, animasyon, useState/useEffect)
+├── EVET  → "use client" ekle
+└── HAYIR → default bırak (Server Component)
+```
+
+### Kod örneği
+
+**Server Component** (default, "use client" YOK):
+
+```tsx
+// src/app/blog/page.tsx
+// "use client" yok → Server Component
+
+async function getPosts() {
+  const res = await fetch('https://api.example.com/posts')
+  return res.json()
+}
+
+export default async function BlogPage() {
+  const posts = await getPosts()   // async component, doğrudan fetch
+  
+  return (
+    <main className="p-8">
+      <h1 className="text-3xl font-bold">Blog</h1>
+      {posts.map((p: any) => <p key={p.id}>{p.title}</p>)}
+    </main>
+  )
+}
+```
+
+Gördün mü? `useEffect`'e gerek yok, `loading` state'ine gerek yok — **async function gibi davranıyor**.
+
+**Client Component** (interaktif olması lazım):
+
+```tsx
+// src/components/Counter.tsx
+'use client'   // ← EN ÜSTTE olmak zorunda
+
+import { useState } from 'react'
+
+export default function Counter() {
+  const [count, setCount] = useState(0)
+  
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      {count} kere tıkladın
+    </button>
+  )
+}
+```
+
+Sonra bunu bir Server Component içinde **normal component gibi** kullanabilirsin:
+
+```tsx
+// src/app/page.tsx  (Server Component)
+import Counter from '@/components/Counter'
+
+export default function Home() {
+  return (
+    <div>
+      <h1>Ana Sayfa</h1>
+      <Counter />     {/* client olanı server içinde kullanmak serbest */}
+    </div>
+  )
+}
+```
+
+**İpucu:** Client Component'i olabildiğince **küçük ve yaprak (leaf)** tut. Ana sayfan Server Component kalsın, sadece buton gibi interaktif parçayı "use client" yap — böylece JS bundle küçük kalır.
+
+---
+
+## 6. Layout ve Sayfa Oluşturma
+
+Root layout'ta `<html>` ve `<body>` tag'leri **olmak zorunda**:
+
+```tsx
+// src/app/layout.tsx
+import type { Metadata } from 'next'
+import './globals.css'
+
+export const metadata: Metadata = {
+  title: 'My App',
+  description: 'Next.js 16 ile yazıldı',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="tr">
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+Birden fazla layout da yapabilirsin — `app/blog/layout.tsx` oluşturursan sadece `/blog/*` route'ları bu layout'u kullanır, `/` kullanmaz. Bu App Router'ın süper gücüdür【turn1fetch0】.
+
+---
+
+## 7. Veri Çekme — Artık useEffect'e Gerek Yok
+
+App Router'da Server Component'ler async olabildiği için **veri çekme çok basitleşti**:
+
+```tsx
+// src/app/users/page.tsx
+async function getUsers() {
+  const res = await fetch('https://jsonplaceholder.typicode.com/users', {
+    cache: 'no-store',   // her request'te yeniden çek (SSR davranışı)
+  })
+  return res.json()
+}
+
+export default async function UsersPage() {
+  const users = await getUsers()
+  
+  return (
+    <ul>
+      {users.map((u: any) => <li key={u.id}>{u.name}</li>)}
+    </ul>
+  )
+}
+```
+
+`fetch`'in cache opsiyonları:
+- `cache: 'force-cache'` → static, build zamanında çek (SSG)
+- `cache: 'no-store'` → her request'te yeniden (SSR)
+- `next: { revalidate: 60 }` → 60 saniyede bir yenile (ISR)
+
+Next 16 ile gelen **Cache Components** modelinde de `use cache` directive'i var — bunu component'lerin, fonksiyonların veya page'lerin üstüne koyunca derleyici otomatik cache key üretiyor【turn5fetch0】:
+
+```tsx
+export default async function ProductPage() {
+  'use cache'
+  // Bu kısım otomatik cache'lenir
+  const product = await getProduct()
+  return <h1>{product.name}</h1>
+}
+```
+
+---
+
+## 8. Bonus: Route Handlers ile API Yazmak
+
+Backend endpoint'i lazımsa, `route.ts` dosyası aç:
+
+```ts
+// src/app/api/hello/route.ts
+export async function GET() {
+  return Response.json({ message: 'Merhaba dünya' })
+}
+
+export async function POST(request: Request) {
+  const body = await request.json()
+  return Response.json({ received: body })
+}
+```
+
+Artık `http://localhost:3000/api/hello` çalışıyor. Ayrı bir Express sunucusu yazmana gerek kalmadı.
+
+---
+
+## 9. Nereden Devam Etmeli
+
+Sıralı öneri:
+
+1. **Resmi Learn course** → nextjs.org/learn — interaktif, adım adım dashboard kuruyorsun
+2. **nextjs.org/docs** → her şeyin güncel hali burada, Türkçe kaynaklara göre hep daha taze
+3. Küçük bir proje: blog + login + birkaç CRUD sayfası yap, Server/Client Component farkı kafanda oturur
+<|endoftext|>
+Hem frontend hem backend'i göreceğimiz, UI güzel olucak, API tarafı da tek dosyalık basit bir proxy. En sonda tek bir şey doldurman kalacak: API key. Hadi başlayalım.
+
+---
+
+## Ne Yapıyoruz?
+
+- **Frontend:** Vanilla HTML + CSS + JS (framework yok, saf haliyle)
+- **Backend:** Node.js + Express
+- **API:** OpenWeatherMap (ücretsiz, senin kendi key'inle)
+
+Buradaki mimari önemli bir konu öğretiyor: **API key'i asla frontend'e koymazsın.** Herkes tarayıcıda kodunu görür, key'ini çalarlar. O yüzden key Node sunucusunda `.env` dosyasında duracak, tarayıcı bizim kendi `/api/weather` endpoint'imize istek atacak, sunucu da gerçek API'ye gidip veriyi getirecek. Buna **proxy pattern** deniyor, production'da herkes böyle yapar.
+
+---
+
+## Adım 1 — Node.js Kurulu mu?
+
+Terminalde şunu çalıştır:
+
+```bash
+node -v
+```
+
+`v18` veya üstü görüyorsan hazırsın (18'den itibaren `fetch` built-in geliyor, ekstra kurmuyoruz). Görmüyorsan [nodejs.org](https://nodejs.org)'a gir, **LTS** sürümünü indir, next-next-next bitir, terminali kapat-aç, tekrar dene.
+
+---
+
+## Adım 2 — Projeyi Kuralım
+
+Terminalde sırayla:
+
+```bash
+mkdir hava-durumu
+cd hava-durumu
+npm init -y
+npm install express dotenv
+```
+
+Bunlar ne yaptı:
+1. Klasör açtık
+2. `package.json` oluşturduk (projenin kimlik kartı)
+3. `express` (sunucu framework'ü) ve `dotenv` (`.env` dosyası okuyucu) kütüphanelerini kurduk
+
+---
+
+## Adım 3 — Dosya Dizilimi
+
+Şu yapıyı kuracağız, toplam 5 dosya:
+
+```
+hava-durumu/
+├── server.js          ← Backend (sunucu)
+├── .env               ← API key burada (KİMYE GÖSTERME)
+├── .env.example       ← Key'siz şablon (git'e atmak için)
+├── package.json       ← npm'in oluşturduğu, dokunmuyoruz
+└── public/
+    ├── index.html     ← Sayfa
+    ├── style.css      ← Stiller
+    └── app.js         ← Frontend mantığı
+```
+
+`public` klasörünü oluştur:
+
+```bash
+mkdir public
+```
+
+---
+
+## Adım 4 — API Key Alma (5 dakika)
+
+1. [openweathermap.org](https://openweathermap.org) → sağ üstten **Sign Up**
+2. Kayıt olduktan sonra üst menüden **API keys** sekmesine gir
+3. **Key'in otomatik oluşturulmuş** halde duruyor, kopyala
+4. ⚠️ **Önemli:** Yeni key'ler aktif olması 10 dakika ila 2 saat arası sürebilir. Çalışmazsa panik yapma, kahve iç, tekrar dene.
+
+Ücretsiz plan: dakikada 60 çağrı, ayda 1 milyon — sana fazlasıyla yeter.
+
+---
+
+## Adım 5 — Kodları Yazalım
+
+### `.env` — key'in yaşayacağı yer
+
+```env
+OPENWEATHER_API_KEY=BURAYA_KENDI_KEYINI_YAPISTIR
+```
+
+İşte o meşhur "burayı doldur" kısmı bu. Kopyaladığın key'i `=`'den sonra yapıştır, tırnak yok, boşluk yok.
+
+### `.env.example` — şablon (git'e atarsan key'in sızmasın)
+
+```env
+OPENWEATHER_API_KEY=senin_keyin_buraya
+```
+
+### `server.js` — Backend
+
+```js
+// Kütüphaneleri çağır
+require('dotenv').config();          // .env dosyasını okur
+const express = require('express');
+const path = require('path');
+
+const app = express();
+const PORT = 3000;
+
+// public klasörünü statik sun — index.html, css, js buradan servis edilir
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Hava durumu endpoint'i: /api/weather?city=istanbul
+app.get('/api/weather', async (req, res) => {
+  const city = req.query.city;
+
+  // Şehir parametresi gelmediyse reddet
+  if (!city || city.trim() === '') {
+    return res.status(400).json({ error: 'Şehir ismi gerekli.' });
+  }
+
+  // Key'i .env'den oku — kodun içinde asla yazılı değil
+  const apiKey = process.env.OPENWEATHER_API_KEY;
+
+  // OpenWeatherMap'e istek at
+  // units=metric → Celsius, lang=tr → Türkçe açıklamalar
+  const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=tr`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // API hata döndürse (örn. şehir bulunamadı) düzgün mesaj ver
+    if (data.cod !== 200) {
+      return res.status(404).json({ error: '"'+ city + '" bulunamadı. Yazımı kontrol et.' });
+    }
+
+    // Sadece ihtiyacımız olan alanları temizleyip gönder
+    res.json({
+      city:        data.name,
+      country:     data.sys.country,
+      temp:        Math.round(data.main.temp),
+      feelsLike:   Math.round(data.main.feels_like),
+      humidity:    data.main.humidity,
+      wind:        data.wind.speed,
+      description: data.weather[0].description,
+      icon:        data.weather[0].icon,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Sunucu hatası. Sonra tekrar dene.' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Hazır: http://localhost:${PORT}`);
+});
+```
+
+### `public/index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hava Durumu</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="container">
+    <h1 class="title">⛅ Hava Nasıl?</h1>
+
+    <!-- Arama formu -->
+    <form id="search-form" class="search-box">
+      <input
+        type="text"
+        id="city-input"
+        placeholder="Şehir yaz... (örn: İstanbul)"
+        autocomplete="off"
+      />
+      <button type="submit">Getir</button>
+    </form>
+
+    <!-- Hızlı şehir butonları -->
+    <div class="quick-cities">
+      <button data-city="İstanbul">İstanbul</button>
+      <button data-city="Ankara">Ankara</button>
+      <button data-city="İzmir">İzmir</button>
+      <button data-city="Londra">Londra</button>
+    </div>
+
+    <!-- Sonuç buraya gelecek -->
+    <div id="result" class="result hidden"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+```
+
+### `public/style.css`
+
+```css
+/* ====== TEMEL ====== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #fff;
+}
+
+.container {
+  width: 100%;
+  max-width: 480px;
+}
+
+.title {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 24px;
+  letter-spacing: 1px;
+}
+
+/* ====== ARAMA ====== */
+.search-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.search-box input {
+  flex: 1;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  transition: border 0.2s;
+}
+
+.search-box input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.search-box input:focus {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.search-box button {
+  padding: 14px 24px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f5af19, #f12711);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.search-box button:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+/* ====== HIZLI ŞEHİRLER ====== */
+.quick-cities {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.quick-cities button {
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.quick-cities button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* ====== SONUÇ KARTI ====== */
+.result {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 28px;
+  text-align: center;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.result .city {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.result .country {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+
+.result .weather-icon {
+  width: 110px;
+  height: 110px;
+  margin: -10px 0;
+}
+
+.result .temp {
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.result .description {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 8px 0 20px;
+  text-transform: capitalize;
+}
+
+/* Detaylar: nem / rüzgar / hissedilen */
+.details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.detail {
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px 6px;
+}
+
+.detail .label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 4px;
+}
+
+.detail .value {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* ====== DURUM MESAJLARI ====== */
+.result.loading,
+.result.error {
+  padding: 40px 28px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  margin: 0 auto 14px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none;
+}
+```
+
+### `public/app.js`
+
+```js
+const form = document.getElementById('search-form');
+const input = document.getElementById('city-input');
+const resultDiv = document.getElementById('result');
+
+// Form gönderilince (Enter veya buton) çalışır
+form.addEventListener('submit', (e) => {
+  e.preventDefault();          // sayfanın yenilenmesini engelle
+  fetchWeather(input.value);
+});
+
+// Hızlı şehir butonları
+document.querySelectorAll('.quick-cities button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    input.value = btn.dataset.city;
+    fetchWeather(btn.dataset.city);
+  });
+});
+
+async function fetchWeather(city) {
+  // Boşsa uğraşma
+  if (!city.trim()) return;
+
+  // Yükleniyor durumunu göster
+  showLoading();
+
+  try {
+    // KENDİ sunucumuza istek atıyoruz, OpenWeatherMap'e değil
+    const res = await fetch(`/api/weather?city=${encodeURIComponent(city)}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      showError(data.error || 'Bir şeyler ters gitti.');
+      return;
+    }
+
+    showWeather(data);
+  } catch (err) {
+    showError('Sunucuya ulaşılamadı. node server.js çalışıyor mu?');
+  }
+}
+
+function showLoading() {
+  resultDiv.classList.remove('hidden');
+  resultDiv.className = 'result loading';
+  resultDiv.innerHTML = `
+    <div class="spinner"></div>
+    <p>Bakılıyor...</p>
+  `;
+}
+
+function showError(msg) {
+  resultDiv.classList.remove('hidden');
+  resultDiv.className = 'result error';
+  resultDiv.innerHTML = `<p>😕 ${msg}</p>`;
+}
+
+function showWeather(data) {
+  resultDiv.classList.remove('hidden');
+  resultDiv.className = 'result';
+  resultDiv.innerHTML = `
+    <div class="city">${data.city}, ${data.country}</div>
+    <img
+      class="weather-icon"
+      src="https://openweathermap.org/img/wn/${data.icon}@2x.png"
+      alt="${data.description}"
+    />
+    <div class="temp">${data.temp}°</div>
+    <div class="description">${data.description}</div>
+    <div class="details">
+      <div class="detail">
+        <div class="label">Hissedilen</div>
+        <div class="value">${data.feelsLike}°</div>
+      </div>
+      <div class="detail">
+        <div class="label">Nem</div>
+        <div class="value">%${data.humidity}</div>
+      </div>
+      <div class="detail">
+        <div class="label">Rüzgar</div>
+        <div class="value">${data.wind} m/s</div>
+      </div>
+    </div>
+  `;
+}
+```
+
+---
+
+## Adım 6 — Çalıştıralım
+
+`.env`'e key'i yapıştırdıysan terminalde:
+
+```bash
+node server.js
+```
+
+`✅ Hazır: http://localhost:3000` yazısını göreceksin. Tarayıcıda aç, "İstanbul" yaz, Enter'a bas.
+
+Güzel görünen bir kart gelecek: sıcaklık, ikon, nem, rüzgar. Bir şehir bulunamadıysa hata mesajı, yüklenirken spinner göreceksin.
+
+**"Key not found" gibi bir hata alırsan:**
+1. `.env` dosyasının adı tam olarak `.env` mi? (başındaki nokta önemli, gizli dosya)
+2. Key'i yapıştırdıktan sonra sunucuyu yeniden başlattın mı? `.env` değişiklikleri hot-reload olmaz, `Ctrl+C` + tekrar `node server.js`
+3. Key henüz aktif olmadıysa 10-120 dakika bekle
+
+---
+
+## Neler Öğrendik? (Kısa Özet)
+
+| Konsept | Bu projedeki karşılığı |
+|---|---|
+| Backend sunucu | `server.js` — Express ile ayağa kalktı |
+| Static dosya servisi | `public/` klasörü tarayıcıya servis edildi |
+| Environment variables | Key `.env`'de, koda hiç gömülmedi |
+| API proxy | Tarayıcı → bizim sunucu → OpenWeatherMap |
+| REST endpoint | `/api/weather?city=...` query parametre aldı |
+| Async/await + fetch | Hem backend'de hem frontend'de kullandık |
+| DOM manipülasyonu | `innerHTML` ile dinamik kart render ettik |
+| Loading/error state | Kullanıcıya her durumda geri bildirim |
+<|endoftext|>
+Pygame ile 2D platformer oluştururken mantık sıramız **pencere kurulumu $\rightarrow$ fizik/oyuncu yapısı $\rightarrow$ harita/bloklar $\rightarrow$ eksen bazlı çarpışma kontrolü** şeklinde ilerler.
+
+---
+
+### Adım 1: Kütüphaneyi indirme
+
+```
+pip install pygame
+```
+
+**Not:** Eğer pip yoksa python sayfasından indirmelisiniz: https://www.python.org/
+
+### Adım 2: Oyun Penceresi ve Ana Döngü
+
+**Mantık:** Oyunun düzgün çalışabilmesi için ekran boyutunu belirlemeli, klavye ve sistem olaylarını dinleyen döngüyü kurmalı ve FPS'i (saniyedeki kare sayısı) sabitlemeliyiz.
+
+```python
+import pygame
+import sys
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("2D Platformer")
+clock = pygame.time.Clock()
+FPS = 60
+
+```
+
+---
+
+### Adım 3: Oyuncu Sınıfı ve Yerçekimi Mantığı
+
+**Mantık:** Oyuncuyu basitçe `pygame.Rect` ile temsil ederiz. Platformer mekaniğinin temeli dikey hız (`vel_y`) ve sürekli etki eden **yerçekimidir**. Zıplama yapabilmek için dikey hızı eksi yönde (yukarı) anlık olarak değiştiririz.
+
+```python
+class Player:
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 32, 48)
+        self.vel_y = 0
+        self.speed = 5
+        self.jump_power = -13
+        self.on_ground = False
+
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        dx = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            dx = -self.speed
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            dx = self.speed
+        if (keys[pygame.K_SPACE] or keys[pygame.K_w]) and self.on_ground:
+            self.vel_y = self.jump_power
+            self.on_ground = False
+        return dx
+
+```
+
+---
+
+### Adım 4: Harita ve Platform Blokları
+
+**Mantık:** Dünyayı kutulardan (`pygame.Rect`) oluşan bir liste olarak tutarız. Oyuncunun bu blokların üstünde durması veya kenarlarına çarpması gerekecek.
+
+```python
+# 1 = Blok, 0 = Boşluk (Metin tabanlı harita tasarımı)
+LEVEL_MAP = [
+    "                            ",
+    "                            ",
+    "            XXXX            ",
+    "                            ",
+    "     XXXX          XXXX     ",
+    "                            ",
+    "XXXXXXXX    XXXXXXXXXXXXXXXX",
+]
+
+TILE_SIZE = 40
+platforms = []
+
+for row_idx, row in enumerate(LEVEL_MAP):
+    for col_idx, tile in enumerate(row):
+        if tile == "X":
+            platforms.append(pygame.Rect(col_idx * TILE_SIZE, row_idx * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+
+```
+
+---
+
+### Adım 5: Ayrıştırılmış Çarpışma Kontrolü (X ve Y Eksenleri)
+
+**Mantık:** Oyunlardaki takılma ve duvarın içine girme hatalarını (bug) önlemek için hareket ve çarpışma kontrolünü **X ve Y eksenlerinde ayrı ayrı** yapmalıyız:
+
+1. X ekseninde hareket et $\rightarrow$ Blokla kesiştiyse sola/sağa kenara çek.
+2. Y ekseninde (yerçekimi ile) hareket et $\rightarrow$ Blokla kesiştiyse alt/üst kenara çek ve yere bastıysa `on_ground = True` yap.
+
+```python
+def update_player(player, dx, platforms, gravity=0.8):
+    # 1. X Ekseni Hareketi ve Çarpışma
+    player.rect.x += dx
+    for block in platforms:
+        if player.rect.colliderect(block):
+            if dx > 0:  # Sağa giderken çarptı
+                player.rect.right = block.left
+            elif dx < 0:  # Sola giderken çarptı
+                player.rect.left = block.right
+
+    # 2. Y Ekseni Hareketi (Yerçekimi) ve Çarpışma
+    player.vel_y += gravity
+    player.rect.y += player.vel_y
+    player.on_ground = False
+
+    for block in platforms:
+        if player.rect.colliderect(block):
+            if player.vel_y > 0:  # Düşerken çarptı (Zemine bastı)
+                player.rect.bottom = block.top
+                player.vel_y = 0
+                player.on_ground = True
+            elif player.vel_y < 0:  # Yükselirken kafasını çarptı
+                player.rect.top = block.bottom
+                player.vel_y = 0
+
+```
+
+---
+
+### Adım 6: Tam Kod (Birleştirilmiş Çalışır Sürüm)
+
+Tüm adımların birleştirilmiş, tek dosya halinde doğrudan çalıştırabileceğin Pygame kodu:
+
+```python
+import pygame
+import sys
+
+pygame.init()
+
+# Ekran Ayarları
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("2D Platformer")
+clock = pygame.time.Clock()
+FPS = 60
+
+# Renkler
+BG_COLOR = (30, 30, 40)
+PLAYER_COLOR = (235, 86, 86)
+PLATFORM_COLOR = (70, 180, 120)
+
+# Harita Tasarımı (0: Boşluk, 1: Blok)
+TILE_SIZE = 40
+LEVEL_MAP = [
+    "                                ",
+    "                                ",
+    "                                ",
+    "           XXXXX                ",
+    "                                ",
+    "      XXXX        XXXX          ",
+    "                                ",
+    "  XXXX                XXXX      ",
+    "                                ",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+]
+
+# Blokları Oluşturma
+platforms = []
+for row_idx, row in enumerate(LEVEL_MAP):
+    for col_idx, tile in enumerate(row):
+        if tile == "X":
+            platforms.append(pygame.Rect(col_idx * TILE_SIZE, row_idx * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+
+# Oyuncu Sınıfı
+class Player:
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 32, 48)
+        self.vel_y = 0
+        self.speed = 6
+        self.jump_power = -14
+        self.on_ground = False
+
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        dx = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            dx = -self.speed
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            dx = self.speed
+        if (keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]) and self.on_ground:
+            self.vel_y = self.jump_power
+            self.on_ground = False
+        return dx
+
+    def update(self, dx, platforms_list, gravity=0.7):
+        # X Hareketi ve Çarpışma
+        self.rect.x += dx
+        for block in platforms_list:
+            if self.rect.colliderect(block):
+                if dx > 0:
+                    self.rect.right = block.left
+                elif dx < 0:
+                    self.rect.left = block.right
+
+        # Y Hareketi ve Çarpışma (Yerçekimi)
+        self.vel_y += gravity
+        self.rect.y += self.vel_y
+        self.on_ground = False
+
+        for block in platforms_list:
+            if self.rect.colliderect(block):
+                if self.vel_y > 0:
+                    self.rect.bottom = block.top
+                    self.vel_y = 0
+                    self.on_ground = True
+                elif self.vel_y < 0:
+                    self.rect.top = block.bottom
+                    self.vel_y = 0
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, PLAYER_COLOR, self.rect)
+
+# Oyuncu Nesnesi
+player = Player(100, 100)
+
+# Ana Oyun Döngüsü
+running = True
+while running:
+    clock.tick(FPS)
+
+    # Event Kontrolü
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            running = False
+
+    # Güncelleme
+    dx = player.handle_input()
+    player.update(dx, platforms)
+
+    # Çizim
+    screen.fill(BG_COLOR)
+    for block in platforms:
+        pygame.draw.rect(screen, PLATFORM_COLOR, block)
+    player.draw(screen)
+
+    pygame.display.flip()
+
+pygame.quit()
+sys.exit()
+
+```
+<|endoftext|>
+Python da yapabileceğiniz kolay oyun sayı tahmin etme yapılabilinir.
+
+## Adım 1: Bilgisayara sayı tutturalım
+
+```python
+import random
+
+sayi = random.randint(1, 100)
+```
+
+**Neden?** `random.randint(1, 100)` bize 1 ile 100 arasında rastgele bir tam sayı verir. Bu sayıyı kullanıcı görmeyecek, o yüzden değişkende saklıyoruz.
+
+## Adım 2: Kullanıcıdan tahmin alalım
+
+```python
+tahmin = int(input("1-100 arası bir sayı tahmin et: "))
+```
+
+**Neden `int()`?** `input()` her zaman **string** (yazı) döndürür. "50" yazısı ile 50 sayısı aynı şey değil — sayısal karşılaştırma yapabilmek için integer'a çeviriyoruz.
+
+## Adım 3: Karşılaştırma — burada if/else devreye girer
+
+Şimdi 3 durum var:
+
+1. Tahmin doğru → oyun bitti
+2. Tahmin küçük → "daha büyük" de
+3. Tahmin büyük → "daha küçük" de
+
+```python
+if tahmin == sayi:
+    print("Bravo! Bildin 🎉")
+elif tahmin < sayi:
+    print("Daha BÜYÜK bir sayı dene ↑")
+else:
+    print("Daha KÜÇÜK bir sayı dene ↓")
+```
+
+**Neden böyle sıraladık?**
+- `if tahmin == sayi` → önce **eşitlik** kontrol edilir. Çünkü kazandın mı kazanmadın mı en kritik soru bu.
+- `elif tahmin < sayi` → eşit değilse, tahmin küçük mü diye bakıyoruz.
+- `else` → ilk ikisi tutmadıysa geriye tek ihtimal kalır: tahmin **büyük**. O yüzden buraya ayrıca `if tahmin > sayi` yazmaya gerek yok — zaten başka seçenek kalmadı. Bu `else`'in güzelliği reis: gereksiz kontrolden kurtarır bizi.
+
+## Adım 4: Kullanıcı bilemediyse tekrar soralım — while döngüsü
+
+Tek seferlik tahmin çok kolay, oyuna heyecan katmak için döngü kuralım:
+
+```python
+while tahmin != sayi:
+    tahmin = int(input("Tekrar dene: "))
+    if tahmin == sayi:
+        print("Bravo! Bildin 🎉")
+    elif tahmin < sayi:
+        print("Daha BÜYÜK bir sayı dene ↑")
+    else:
+        print("Daha KÜÇÜK bir sayı dene ↓")
+```
+
+**Neden `while`?** Döngü, `tahmin != sayi` olduğu sürece devam eder. Yani kullanıcı bilmedikçe oyun kapanmaz. Bildiği an koşul yanlış olur ve döngüden çıkarız.
+
+## Tam kod (bir araya getirilmiş)
+
+```python
+import random
+
+sayi = random.randint(1, 100)
+tahmin = 0  # döngüye girebilmek için sayıdan farklı başlatıyoruz
+
+while tahmin != sayi:
+    tahmin = int(input("1-100 arası bir sayı tahmin et: "))
+
+    if tahmin == sayi:
+        print("Bravo! Bildin 🎉")
+    elif tahmin < sayi:
+        print("Daha BÜYÜK bir sayı dene ↑")
+    else:
+        print("Daha KÜÇÜK bir sayı dene ↓")
+```
+
+## Bonus: Kaç denemede bildiğini sayalım
+
+```python
+import random
+
+sayi = random.randint(1, 100)
+tahmin = 0
+deneme = 0
+
+while tahmin != sayi:
+    tahmin = int(input("1-100 arası bir sayı tahmin et: "))
+    deneme += 1
+
+    if tahmin == sayi:
+        print(f"Bravo! {deneme} denemede bildin 🎉")
+    elif tahmin < sayi:
+        print("Daha BÜYÜK bir sayı dene ↑")
+    else:
+        print("Daha KÜÇÜK bir sayı dene ↓")
+```
+
+## Kısaca
+
+Bu oyunda `random` ile rastgele sayı oluşturmayı, `input()` ile kullanıcıdan veri almayı, `if/elif/else` ile koşulları kontrol etmeyi ve `while` ile oyunu tekrar ettirmeyi öğrendik. Ayrıca `int()` ile kullanıcıdan gelen metni sayıya çevirdik ve `deneme` değişkeniyle oyuncunun kaç tahminde bulunduğunu takip ettik.
+<|endoftext|>
+# Python'da Sözdizimi Hatasını Bulma
+
+Bir Python programında sözdizimi hatası alıyoruz. Programı çalıştırdığımızda `SyntaxError` oluşuyor ve hata `if` satırında gösteriliyor.
+
+İlk bakışta hata `if` satırındaymış gibi görünebilir. Ancak Python'da bir sözdizimi hatasının gösterildiği satır her zaman hatanın gerçekten bulunduğu satır değildir. Çoğu zaman problem bir önceki satırdaki eksik parantez, tırnak işareti veya başka bir sözdizimi probleminden kaynaklanır.
+
+## Adım 1: Hatalı kodu inceleyelim
+
+Örneğin elimizde şöyle bir kod olduğunu düşünelim:
+
+```python
+import random
+
+print("Mağaraya girdin.")
+
+playerChoice = input("Bir kapı seç: A veya B: ")
+
+if playerChoice == "A":
+    print("Bir hazine odasına girdin.")
+
+elif playerChoice == "B":
+    print("Odaya giriyorsun ve uyuyan bir ejderha buluyorsun.")
+    print("Şunlardan birini yapabilirsiniz:")
+    print("A) Ejderhanın altınlarından birazını çalmaya çalış.")
+    print("B) Ejderhanın etrafından gizlice geçerek çıkışa ulaş.")
+
+    dragonChoice = input("A veya B seç: "
+
+    if dragonChoice == "A":
+        print("Ejderha uyanır ve seni yer.")
+    elif dragonChoice == "B":
+        print("Ejderhanın etrafından gizlice geçip kaçtın.")
+    else:
+        print("Geçersiz seçim.")
+```
+
+Bu kodu çalıştırdığımızda Python `if dragonChoice == "A":` satırını işaretleyebilir.
+
+İlk düşüncemiz:
+
+> "Demek ki `if` satırında hata var."
+
+Fakat önceki satıra dikkatlice bakarsak problemi bulabiliriz.
+
+## Adım 2: Hata mesajının gösterdiği satırdan önceki satırı kontrol edelim
+
+Şu satır problemli:
+
+```python
+dragonChoice = input("A veya B seç: "
+```
+
+Burada `input(` ile bir parantez açtık:
+
+```text
+input(
+```
+
+Fakat parantezi kapatmadık.
+
+Doğru hali:
+
+```python
+dragonChoice = input("A veya B seç: ")
+```
+
+olmalı.
+
+Python bu nedenle sonraki satırdaki `if` ifadesini düzgün şekilde yorumlayamaz ve hatayı orada gösterebilir.
+
+## Adım 3: Sözdizimi hatasının nedenini anlayalım
+
+Python kodu yukarıdan aşağıya doğru okur.
+
+Şu kodda:
+
+```python
+dragonChoice = input("A veya B seç: "
+
+if dragonChoice == "A":
+```
+
+Python hâlâ önceki `input(` ifadesinin tamamlanmasını beklemektedir.
+
+Bu nedenle sonraki `if` satırına geldiğinde beklediği sözdizimini bulamaz.
+
+Bu yüzden önemli bir debugging alışkanlığı şudur:
+
+> Bir `SyntaxError` gördüğümüzde yalnızca kırmızı olarak işaretlenen satıra bakmamalıyız. Birkaç satır yukarıyı da kontrol etmeliyiz.
+
+Özellikle şunları kontrol etmek faydalıdır:
+
+* Kapanmamış `(`, `[`, `{`
+* Kapanmamış tırnak işaretleri
+* Eksik `:`
+* Yanlış girinti
+* Yanlış yazılmış Python anahtar kelimeleri
+* Fazladan veya eksik karakterler
+
+## Adım 4: Düzeltilmiş kodu oluşturalım
+
+Eksik parantezi düzeltiyoruz:
+
+```python
+import random
+
+print("Mağaraya girdin.")
+
+playerChoice = input("Bir kapı seç: A veya B: ")
+
+if playerChoice == "A":
+    print("Bir hazine odasına girdin.")
+
+elif playerChoice == "B":
+    print("Odaya giriyorsun ve uyuyan bir ejderha buluyorsun.")
+    print("Şunlardan birini yapabilirsiniz:")
+    print("A) Ejderhanın altınlarından birazını çalmaya çalış.")
+    print("B) Ejderhanın etrafından gizlice geçerek çıkışa ulaş.")
+
+    dragonChoice = input("A veya B seç: ")
+
+    if dragonChoice == "A":
+        print("Ejderha uyanır ve seni yer.")
+    elif dragonChoice == "B":
+        print("Ejderhanın etrafından gizlice geçip kaçtın.")
+    else:
+        print("Geçersiz seçim.")
+```
+
+## Adım 5: Kodu tekrar test edelim
+
+Şimdi programı tekrar çalıştırıyoruz.
+
+Program artık `dragonChoice` satırında sözdizimi hatası vermemeli.
+
+Örneğin kullanıcı `B` seçerse:
+
+```text
+Mağaraya girdin.
+Bir kapı seç: A veya B: B
+Odaya giriyorsun ve uyuyan bir ejderha buluyorsun.
+Şunlardan birini yapabilirsiniz:
+A) Ejderhanın altınlarından birazını çalmaya çalış.
+B) Ejderhanın etrafından gizlice geçerek çıkışa ulaş.
+A veya B seç: B
+Ejderhanın etrafından gizlice geçip kaçtın.
+```
+
+## Kısaca
+
+Hatanın gösterildiği satır her zaman hatanın bulunduğu satır değildir. Özellikle `SyntaxError` durumunda önceki satırlarda kapanmamış parantez, tırnak veya eksik `:` olup olmadığını kontrol etmek gerekir.
+
+Bu örnekte sorun `if dragonChoice == "A":` satırında değil, hemen önceki `input()` çağrısında bulunan eksik `)` işaretindeydi.
+<|endoftext|>
+PyTorch'ta bir model eğitirken ve tekrarlanabilir (reproducible) sonuçlar alırken öncelikle tensör mantığını, cihaz yönetimini (`device`) ve rastgelelik kontrolünü (`seed`) bilmemiz gerekir.
+
+## Plan
+
+1. Tensörler — PyTorch'un temel veri yapısı
+2. `device` — CPU / GPU yönetimi
+3. `seed` ve tekrarlanabilirlik — en çok sorulan konu
+4. `autograd` — otomatik türev alma
+5. `torch.nn` — katmanlar ve model tanımlama
+6. `torch.optim` — optimizasyon algoritmaları
+7. `Dataset` ve `DataLoader` — veri besleme
+8. Loss fonksiyonları ve functional API
+9. `model.train()` vs `model.eval()` farkı
+10. Kaydetme / yükleme — `state_dict`
+11. Çıkarım (inference) için doğru yöntemler
+12. Hepsini birleştiren standart eğitim döngüsü
+13. Test / özet + sık yapılan hatalar
+
+---
+
+## Adım 1 — Tensörler (`torch.Tensor`)
+
+PyTorch'ta her şey tensördür. NumPy array gibi düşün ama iki süper gücü var: **GPU'da çalışır** ve **otomatik türev alır**.
+
+```python
+import torch
+import numpy as np
+
+# Oluşturma yolları
+x = torch.tensor([[1., 2.], [3., 4.]])   # veriden
+y = torch.zeros(3, 3)                     # sıfırlarla
+z = torch.ones(2, 2)
+r = torch.rand(2, 2)                      # 0-1 arası uniform rastgele
+n = torch.randn(2, 2)                     # standart normal dağılım (en çok kullanılan)
+e = torch.empty(2, 2)                     # bellek ayrılmış ama değerler çöp! sonradan doldurulur
+i = torch.arange(0, 10, 2)                # [0, 2, 4, 6, 8]
+l = torch.linspace(0, 1, 5)               # 0'dan 1'e 5 eşit nokta
+
+# NumPy köprüsü — bellek paylaşır (CPU'da)! Biri değişirse diğeri de değişir
+a = np.array([1., 2.])
+t = torch.from_numpy(a)
+back = t.numpy()
+```
+
+En önemli özellikler:
+
+```python
+x.shape        # torch.Size([2, 2])
+x.dtype        # torch.float32 (varsayılan)
+x.device       # device(type='cpu')
+x.requires_grad  # False
+
+# Boyut manipülasyonu
+x.view(4)          # yeniden şekillendir (aynı bellek)
+x.reshape(4)       # gerekirse kopya açar (güvenli)
+x.unsqueeze(0)     # yeni eksen ekle: [2,2] -> [1,2,2]
+x.squeeze()        # 1 boyutlu eksenleri at
+x.permute(1, 0)    # eksenlerin yerini değiştir
+x.transpose(0, 1)
+
+# Birleştirme
+torch.cat([y, z], dim=0)     # mevcut eksende birleştir
+torch.stack([y, z], dim=0)   # YENİ eksen açarak yığ: [2, 3, 3]
+```
+
+**Kritik tuzak:** İki tensörün dtype'ı veya cihazı farklıysa aritmetik yapamazsın:
+
+```python
+a = torch.tensor([1, 2])           # int64
+b = torch.tensor([1.0, 2.0])       # float32
+# a + b  ->  RuntimeError: expected scalar type Float but found Long
+a.float() + b    # düzeltme: dtype'ı eşitle
+```
+
+---
+
+## Adım 2 — `device`: CPU / GPU Yönetimi
+
+Resmi dokümantasyonda önerilen pattern budur — cihazı **bir kez** tanımla, her yere taşı:
+
+```python
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# İlgili kontroller
+torch.cuda.is_available()      # GPU var mı?
+torch.cuda.device_count()      # kaç GPU var?
+torch.cuda.get_device_name(0)  # "NVIDIA GeForce RTX 4090" gibi
+
+# Tensörü doğrudan GPU'da oluştur VEYA taşı
+x = torch.randn(1000, 1000, device=device)   # doğrudan oluşturma (daha hızlı)
+y = torch.randn(1000, 1000).to(device)       # taşıma
+
+# Klasik kullanım
+model = SomeModel().to(device)          # modelin PARAMETRELERİ GPU'ya gider
+for data, target in loader:
+    data, target = data.to(device), target.to(device)
+```
+
+**Altın kural:** Model ve veri **aynı cihazda** olmak zorunda. Aksi halde:
+
+```
+RuntimeError: Expected all tensors to be on the same device,
+but found at least two devices, cuda:0 and cpu!
+```
+
+Bu hata 10 kez karşılaşacaksın, garanti. Sebep %90: `data.to(device)` yazmayı unutmak.
+
+Ek notlar:
+
+```python
+x.device                          # tensör nerede? -> device(type='cuda', index=0)
+if x.is_cuda: ...                 # CUDA'da mı kontrolü
+cpu_tensör = gpu_tensör.cpu()     # GPU'dan CPU'ya geri çekmek (sonuçları incelemek için)
+
+# torch.device("cuda") == torch.device("cuda:0")
+# Birden fazla GPU'da ilkini seçmek istersen: "cuda:0" yazabilirsin
+```
+
+Eski kodlarda `model.cuda()` ve `tensor.cuda()` görürsün — aynı işi yapar, ama `.to(device)` pattern'i cihazı tek yerden değiştirmene izin verdiği için tercih edilir.
+
+---
+
+## Adım 3 — `seed` ve Tekrarlanabilirlik
+
+Burası en çok karıştırılan konu. Sorun şu: model ağırlıkları, DataLoader karıştırması, dropout maskesi... hepsi **rastgele**. Seed vermezsen her çalıştırmada farklı sonuç alırsın.
+
+PyTorch'un kendi dokümantasyonundaki **reproducibility** sayfasında verilen tam çözüm:
+
+```python
+import torch
+import numpy as np
+import random
+
+seed = 42
+
+# 1) Python'un kendi random'ı (DataLoader worker'ları vs. kullanabilir)
+random.seed(seed)
+
+# 2) NumPy random'ı (veri ön işlemede kullanılır)
+np.random.seed(seed)
+
+# 3) PyTorch CPU rastgeleliği — model init, randn vs. hepsi bundan etkilenir
+torch.manual_seed(seed)
+
+# 4) PyTorch GPU rastgeleliği
+torch.cuda.manual_seed(seed)        # tek GPU
+torch.cuda.manual_seed_all(seed)    # TÜM GPU'lar (multi-GPU'da şart)
+```
+
+Not: `torch.manual_seed(seed)` çağrısı, dokümana göre **tüm CUDA cihazlarını da** seed'ler. Yani pratikte 4. satır ekstra güvencedir ama zararı yoktur.
+
+**Şimdi asıl tuzaklar** — bunlar seed versen bile tekrarlanabilirliği bozar:
+
+```python
+# TUZAK 1: cuDNN optimizasyonu
+# cuDNN varsayılan olarak "en hızlı algoritmayı" kendisi seçer ve bu
+# bazı algoritmalar deterministik değildir. Kontrol:
+
+torch.backends.cudnn.deterministic = True   # sadece deterministik algoritmalar kullan
+torch.backends.cudnn.benchmark = False      # hız için otomatik arama yapma
+
+# benchmark=True, girdi boyutu sabitse hız KAZANDIRIR ama determinizmi bozar.
+# Yani: hız ister -> benchmark=True; tekrarlanabilirlik ister -> False.
+```
+
+```python
+# TUZAK 2: Bazı operatörlerin GPU'da deterministik versiyonu YOKTUR
+# (örneğin bazı interpolate/pooling backward'ları). PyTorch 1.9+ bunlar için:
+
+torch.use_deterministic_algorithms(True)
+# Deterministik olmayan bir op kullanılırsa anında hata fırlatır
+# (sessizce farklı sonuç vermek yerine). CTF_VISIBLE ortam değişkeni gerektiren
+# op'lar da vardır; hata mesajı sana ne yapacağını söyler.
+```
+
+```python
+# TUZAK 3: DataLoader worker'ları — her worker ayrı süreç, kendi seed'i var
+
+from torch.utils.data import DataLoader
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+g = torch.Generator()
+g.manual_seed(seed)
+
+loader = DataLoader(dataset, batch_size=32, shuffle=True,
+                    num_workers=2,
+                    worker_init_fn=seed_worker,  # worker'ları seed'le
+                    generator=g)                 # shuffle'ı da seed'le
+```
+
+Önemli gerçeği bil: **Tekrarlanabilirlik ve hız düşmanıdır.** Tam determinizm genelde eğitimi yavaşlatır. Resmi dokümantasyonun da önerdiği pratik yaklaşım: seed'leri ayarla, `cudnn.deterministic=True` yap; yine de birebir aynı kayıp değerlerini garanti etmeyi bekleme, "yakın sonuçlar" normaldir.
+
+Bir de production içinde rastgeleliğe ihtiyacın olan yerde (ör. geçici bir işlem sırasında global seed'i bozmamak için):
+
+```python
+with torch.random.fork_rng(devices=[]):
+    torch.manual_seed(123)      # bu seed sadece bu blok içinde geçerli
+    x = torch.rand(3)
+# blok çıkınca eski RNG durumu geri gelir
+```
+
+---
+
+## Adım 4 — `autograd`: Otomatik Türev
+
+PyTorch'un kalbi. Yaptığın her işlem bir **hesap grafiğine** kaydedilir ve `backward()` çağırınca zincir kuralıyla gradyanlar hesaplanır.
+
+```python
+x = torch.tensor(2.0, requires_grad=True)   # "bunun gradyanını takip et"
+y = x ** 3                                   # y = x³
+y.backward()                                 # dy/dx hesapla
+print(x.grad)                                # tensor(12.) -> 3x² = 3·4 = 12 ✓
+```
+
+Mekanizmayı bil:
+
+- `requires_grad=True` olan tensörler üzerinden yapılan işlemler grafiğe eklenir.
+- `backward()` çağrıldığında grafik **varsayılan olarak serbest bırakılır** (bellek tasarrufu). Aynı grafikte ikinci kez `backward()` çağırmak hata verir — ihtiyacın varsa `backward(retain_graph=True)`.
+- Bir hesabın gradyan takibinden çıkmasını istersen: `x.detach()` (aynı veriyi taşıyan, grafikten kopmuş yeni tensör döner).
+
+Gradyanların **biriktiğini** bil — bu tasarım gereği böyledir (RNN'ler için) ama eğitim döngüsünde her adımda temizlemek zorunludur:
+
+```python
+x = torch.tensor(1.0, requires_grad=True)
+(x * 2).backward()
+print(x.grad)        # tensor(2.)
+(x * 3).backward()
+print(x.grad)        # tensor(5.)  -> BİRİKTİ! (2 + 3)
+x.grad.zero_()       # elle sıfırla. Eğitimde bunu optimizer.zero_grad() yapar
+```
+
+Çıkarım yaparken gradyan hesabını tamamen kapat:
+
+```python
+with torch.no_grad():          # grafik kurulmaz, bellek + hız kazancı
+    out = model(input)
+
+# PyTorch 1.9+: inference için daha agresif versiyon
+with torch.inference_mode():   # no_grad'tan da hızlı, view'lara dokunmayı yasaklar
+    out = model(input)
+```
+
+---
+
+## Adım 5 — `torch.nn`: Katmanlar ve Model Tanımlama
+
+`nn.Module`, tüm modellerin atasıdır. İki metodu doldurursun: `__init__` (katmanları tanımla) ve `forward` (veri akışı):
+
+```python
+import torch.nn as nn
+
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()                    # ZORUNLU, unutma
+        self.fc1 = nn.Linear(784, 128)        # tam bağlı katman
+        self.fc2 = nn.Linear(128, 10)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.2)        # eğitim sırasında %20 nöron kapatır
+        self.bn = nn.BatchNorm1d(128)         # batch normalizasyon
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        return self.fc2(x)
+
+model = Net()
+```
+
+Bilmen gereken dahili davranışlar:
+
+```python
+model.parameters()   # tüm öğrenilebilir parametreler (optimizer'a bunu verirsin)
+model.named_parameters()   # isimli versiyonu — debug için harika
+model.state_dict()   # parametrelerin sözlüğü — kaydetme/yüklemede kullanılır
+model.to(device)     # modül, parametrelerini yerinde (in-place) taşır
+model.train()        # eğitim moduna al
+model.eval()         # çıkarım moduna al
+```
+
+En sık kullanılan katmanlar:
+
+```python
+nn.Linear(in_features, out_features)   # y = xW^T + b
+nn.Conv2d(in_ch, out_ch, kernel_size, stride=1, padding=0)
+nn.MaxPool2d(2)
+nn.BatchNorm2d(channels)
+nn.Dropout(p)          # sadece train modunda aktif!
+nn.Embedding(num_embeddings, embedding_dim)   # kelime -> vektör (NLP'nin temeli)
+nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+nn.Flatten()
+
+# Aktivasyonlar
+nn.ReLU(); nn.Sigmoid(); nn.Tanh(); nn.Softmax(dim=1); nn.GELU()
+
+# Kayıpsız eşleme modülü
+nn.Sequential(
+    nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10)
+)   # içindekileri sırayla çalıştırır, hızlı prototip için ideal
+```
+
+Önemli detay — `nn.Linear` girdi şekli: `(batch_size, ..., in_features)` bekler. Tek örnek verirsen `(in_features,)` olmaması için `x.unsqueeze(0)` ile batch boyutu ekle. Conv2d ise `(batch, channels, height, width)` bekler — **NCHW** formatı.
+
+---
+
+## Adım 6 — `torch.optim`: Optimizasyon
+
+Optimizer, parametreleri gradyanlara göre güncelleyen sınıftır. Kurulum üçlüsü hep aynıdır:
+
+```python
+import torch.optim as optim
+
+optimizer = optim.Adam(model.parameters(), lr=1e-3)     # en yaygın başlangıç
+# alternatifler: optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+#                optim.AdamW(...)  # weight decay düzeltmeli Adam — günümüzde default
+
+# Parametre grupları: farklı katmanlara farklı lr vermek mümkün
+optimizer = optim.SGD([
+    {"params": model.fc1.parameters(), "lr": 1e-3},
+    {"params": model.fc2.parameters(), "lr": 1e-4},
+])
+```
+
+Eğitim adımının standart ritmi — **sıralamayı ezberle**:
+
+```python
+optimizer.zero_grad()    # 1. önceki adımın gradyanlarını temizle (birikmesin!)
+loss = criterion(output, target)   # 2. kaybı hesapla
+loss.backward()          # 3. gradyanları hesapla (grafiği geriye gez)
+optimizer.step()         # 4. parametreleri güncelle
+```
+
+**Ölçekleyici (lr scheduler)** — öğrenme oranını zamanla değiştirmek:
+
+```python
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+# her 5 epoch'ta lr yarıya iner
+
+# her epoch sonunda:
+scheduler.step()
+
+# popüler diğerleri:
+optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
+optim.lr_scheduler.OneCycleLR(...)     # warmup + kozinus, vision eğitimlerinde popüler
+optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=3)
+# bu sonuncusu val loss'a bakar, ona scheduler.step(val_loss) diye geçilir
+```
+
+---
+
+## Adım 7 — `Dataset` ve `DataLoader`
+
+`Dataset` verinin **nasıl okunacağını** tanımlar, `DataLoader` onu **batch'leyip besler**.
+
+```python
+from torch.utils.data import Dataset, DataLoader, TensorDataset
+
+# Hazır olan: tensörlerin varsa hiç class yazma
+X = torch.randn(1000, 20)
+y = torch.randint(0, 2, (1000,))
+dataset = TensorDataset(X, y)      # indeksleyince (X[i], y[i]) döner
+```
+
+Gerçek veri için kendi class'ını yazarsın — sadece 3 metot şart:
+
+```python
+class MyDataset(Dataset):
+    def __init__(self, features, labels):
+        self.x = features
+        self.y = labels
+
+    def __len__(self):
+        return len(self.x)             # kaç örnek var?
+
+    def __getitem__(self, idx):
+        return self.x[idx], self.y[idx]   # idx'inci örneği döndür
+```
+
+`DataLoader` parametreleri ve ne işe yaradıkları:
+
+```python
+loader = DataLoader(
+    dataset,
+    batch_size=32,        # her iterasyonda 32 örnek
+    shuffle=True,         # epoch başında karıştır (test loader'da False!)
+    num_workers=4,        # paralel veri yükleme süreçleri (0 = ana süreç, Windows'ta dikkat)
+    pin_memory=True,      # CPU->GPU kopyasını hızlandırır (GPU kullanırken önerilir)
+    drop_last=False,      # son eksik batch'i at
+    worker_init_fn=...,   # yukarıdaki seed fonksiyonu buraya girer
+    generator=g,          # shuffle determinizmi için
+)
+
+for batch_x, batch_y in loader:
+    ...   # her döngü: (32, 20) ve (32,) şeklinde bir batch
+```
+
+`num_workers > 0` Windows ve not defterlerinde `if __name__ == "__main__":` koruması olmadan hata verebilir — worker'lar süreci çoğaltır, o yüzden giriş noktası korunmalıdır.
+
+---
+
+## Adım 8 — Loss Fonksiyonları ve Functional API
+
+```python
+# Sinflandırma
+criterion = nn.CrossEntropyLoss()
+# DİKKAT: girdi olarak RAW logits ister (softmax'sız!), hedef olarak SINIF İNDEKSİ
+# output: (batch, 10), target: (batch,) ve değerler 0-9 arası tam sayı
+
+nn.BCELoss()             # binary cross entropy — girdi sigmoid'den GEÇMİŞ olmalı
+nn.BCEWithLogitsLoss()   # sigmoid'i kendi uygular — sayısal olarak daha stabil, BUNU SEÇ
+
+# Regresyon
+nn.MSELoss()
+nn.L1Loss()
+nn.SmoothL1Loss()        # huber loss — aykırı değerlere daha toleranslı
+```
+
+En sık yapılan hata: `nn.CrossEntropyLoss`'a softmax uygulanmış logits vermek. **Uygulama, loss'un içinde yapılıyor** (`LogSoftmax + NLLLoss` birleşimi). Sen sadece ham logits ver.
+
+İşlevsel (fonksiyon) API — katman durumu tutmuyorsa `F` ile fonksiyon olarak kullanılır:
+
+```python
+import torch.nn.functional as F
+
+out = F.relu(x)             # nn.ReLU() nesnesi kurmaya gerek yok
+out = F.max_pool2d(x, 2)
+loss = F.cross_entropy(logits, target)   # nn.CrossEntropyLoss ile aynı
+```
+
+Pratik kural: **öğrenilebilir parametresi olan şey** (Linear, Conv2d, BatchNorm) → `nn.X` modülü; **saf matematik** (relu, softmax, pooling) → `F.x` fonksiyonu.
+
+---
+
+## Adım 9 — `model.train()` vs `model.eval()`
+
+Bu ikili göze basit görünür ama atlanırsa model **sessizce yanlış** sonuç verir. Çünkü bazı katmanlar moduna göre farklı davranır:
+
+| Katman | `train()` modunda | `eval()` modunda |
+|---|---|---|
+| `Dropout` | rastgele nöronları kapatır | hiç kapatmaz |
+| `BatchNorm` | batch istatistiklerini kullanır ve günceller | eğitim sırasında öğrenilen istatistikleri kullanır |
+
+```python
+# Eğitim döngüsü
+model.train()
+for data, target in train_loader:
+    ...
+
+# Doğrulama döngüsü
+model.eval()
+with torch.no_grad():
+    for data, target in val_loader:
+        ...
+```
+
+Klasik hata: doğrulama döngüsünde `model.eval()` unutulur → dropout açık kaldığı için doğrulama skoru her seferinde farklı ve şişirilmiş çıkar. Şüphen varsa `model.eval()` + `torch.no_grad()` birlikte kullan, çıkarımda asla yanlış yönde etkisi olmaz.
+
+---
+
+## Adım 10 — Kaydetme / Yükleme: `state_dict`
+
+Resmi dokümantasyon **tüm modeli değil, `state_dict`'i kaydetmeyi** önerir:
+
+```python
+# KAYDET
+torch.save(model.state_dict(), "model.pt")
+
+# YÜKLE
+model = Net()                                  # önce mimariyi kur (aynı class!)
+model.load_state_dict(torch.load("model.pt"))  # sonra ağırlıkları yükle
+model.eval()                                   # çıkarım yapacaksan eval'e al
+```
+
+Neden pickle ile tüm modeli kaydetmiyoruz? Çünkü o yöntem class tanımının koduyla sıkışır; kodu biraz değiştirsen eski checkpoint yüklenemez. `state_dict` sadece saf ağırlık sözlüğüdür, esnektir.
+
+`map_location` — GPU'da eğitilmiş modeli CPU'lu makinede yüklerken şart:
+
+```python
+model.load_state_dict(torch.load("model.pt", map_location="cpu"))
+```
+
+Checkpoint (devam edilebilir eğitim) — optimizer durumunu da kaydet:
+
+```python
+torch.save({
+    "epoch": epoch,
+    "model_state": model.state_dict(),
+    "optimizer_state": optimizer.state_dict(),   # Adam'ın momentum tamponları vs.
+    "loss": loss,
+}, "checkpoint.pt")
+
+# Yüklerken:
+model.load_state_dict(ckpt["model_state"])
+optimizer.load_state_dict(ckpt["optimizer_state"])
+```
+
+`state_dict`'teki isimleri görmek istersen: `print(model.state_dict().keys())` — yüklerken "Missing key / Unexpected key" hatası alırsan isim farkına burada bak.
+
+---
+
+## Adım 11 — Çıkarım (Inference) İçin Doğru Yöntem
+
+Üçlü ritüel — eval, no_grad/inference_mode, eval-tipli girdi:
+
+```python
+model.eval()                      # 1. dropout off, BN eval istatistikleri
+with torch.inference_mode():      # 2. gradyan takibi kapalı
+    x = input_tensor.to(device)   # 3. veri doğru cihazda
+    logits = model(x)
+    probs = torch.softmax(logits, dim=1)   # dim=1! dim=0 batch'i softmax'lar, klasik hata
+    pred = logits.argmax(dim=1)            # en olası sınıf
+```
+
+Bir de mini-batch içi "tek örnek" tuzağı: model `(features)` değil `(batch, features)` bekler, tek örnek verirken `x.unsqueeze(0)` ekle.
+
+---
+
+## Adım 12 — Hepsini Birleştiren Standart Eğitim Döngüsü
+
+Öğrendiğimiz her şeyi — seed, device, optimizer ritmi, eval modu, checkpoint — doğru sırayla kullanan, PyTorch dokümanlarında göreceğin "kanonik" yapı:
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import random
+
+# ---------- Tekrarlanabilirlik ----------
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+# ---------- Cihaz ----------
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# ---------- Veri ----------
+X = torch.randn(1000, 20)
+y = torch.randint(0, 2, (1000,))
+dataset = torch.utils.data.TensorDataset(X, y)
+loader = torch.utils.data.DataLoader(dataset, batch_size=32,
+                                     shuffle=True, pin_memory=(device.type == "cuda"))
+
+# ---------- Model, loss, optimizer ----------
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(20, 64), nn.ReLU(), nn.Dropout(0.2),
+            nn.Linear(64, 2),
+        )
+    def forward(self, x):
+        return self.net(x)
+
+model = Net().to(device)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.AdamW(model.parameters(), lr=1e-3)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
+
+# ---------- Eğitim ----------
+for epoch in range(10):
+    model.train()
+    total_loss = 0.0
+    for xb, yb in loader:
+        xb, yb = xb.to(device), yb.to(device)
+
+        optimizer.zero_grad()          # 1
+        logits = model(xb)             # 2
+        loss = criterion(logits, yb)   # 3
+        loss.backward()                # 4
+        optimizer.step()               # 5
+
+        total_loss += loss.item() * xb.size(0)   # .item(): GPU tensörünü Python sayısına çeker
+
+    scheduler.step()                   # epoch başına bir kez
+    print(f"Epoch {epoch+1}: loss = {total_loss/len(dataset):.4f}")
+
+# ---------- Checkpoint ----------
+torch.save(model.state_dict(), "model.pt")
+
+# ---------- Çıkarım ----------
+model.eval()
+with torch.inference_mode():
+    sample = torch.randn(1, 20).to(device)     # unsqueezed: (1, 20)
+    pred = model(sample).argmax(dim=1)
+    print("Tahmin:", pred.item())
+```
+
+Döngüde geçen 5 satırlık ritmi (`zero_grad → forward → loss → backward → step`) kalbin gibi ezberle — göreceğin neredeyse her PyTorch kodunda aynı sırayla durur.
+
+Bir detay: `loss.item()` döngü içinde kaybı loglamak için gereklidir ve doğru yerdedir; ama gradyan akışı sırasında `float(loss)` gibi şeyler yapmaktan kaçın — `.item()` hariç tüm loss tutma işlemleri grafikle birlikte bellekte birikir.
+
+---
+
+## Test / Özet
+
+**Nasıl kullanılır:** Kod Python 3.8+ ve `pip install torch` ile kurulmuş bir ortamda çalışır. GPU yoksa otomatik CPU'ya düşer; seed ve determinizm satırları CPU'da da geçerlidir.
+<|endoftext|>

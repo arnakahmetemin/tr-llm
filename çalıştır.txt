@@ -1,0 +1,5 @@
+mkdir data & python prepare_data.py --source wiki --target 1e9 --out data/wiki.bin --tokenizer tokenizer.json --eos_id 0 && python -c "import
+  os,sys;v='data/val.bin';os.path.exists(v) and sys.exit(0);p='data/wiki.bin';n=10000000;sz=os.path.getsize(p);f=open(p,'rb');f.seek(sz-n);t=f.re
+  ad(n);f.close();open(v,'wb').write(t);f=open(p,'r+b');f.truncate(sz-n);f.close();print('val ayrildi')" && python prepare_data.py --source local
+  --input trcodingdata/dataset --target 1e8 --out data/kendi.bin --tokenizer tokenizer.json --eos_id 0 && python prepare_data.py --source
+  fineweb --target 7e9 --out data/fineweb.bin --tokenizer tokenizer.json --eos_id 0

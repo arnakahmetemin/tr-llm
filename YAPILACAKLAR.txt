@@ -1,0 +1,127 @@
+===============================================================
+  TÜRKÇE LLM - ADIM ADIM KOMUT LİSTESİ  (copy-paste)
+  Sırayla git. Her aşamanın sonunda kontrol noktası var.
+===============================================================
+
+---------------------------------------------------------------
+AŞAMA 1 - ORTAM KONTROLÜ
+---------------------------------------------------------------
+
+# 1.1 - nex1 venv'ini aktif et, sonra bunu çalıştır ve ÇIKTIYI BANA AT:
+
+python -c "import sys,importlib; import torch,numpy; print('python',sys.version.split()[0]); print('torch  ',torch.__version__); print('numpy  ',numpy.__version__); print('CUDA   ',torch.cuda.is_available(),torch.version.cuda); print('GPU    ',torch.cuda.get_device_name(0) if torch.cuda.is_available() else '-'); print('bf16   ',torch.cuda.is_bf16_supported() if torch.cuda.is_available() else '-'); print('SDPA   ',hasattr(torch.nn.functional,'scaled_dot_product_attention')); [print(f'{m:7}',getattr(importlib.import_module(m),'__version__','?')) if importlib.util.find_spec(m) else print(f'{m:7} YOK') for m in ('tokenizers','datasets','huggingface_hub')]"
+
+# ARANAN: CUDA True | GPU = RTX 3060 Ti | bf16 True | SDPA True | torch >= 2.1
+
+
+# 1.2 - eksik paketleri kur
+#   torch 2.3 VE ÜSTÜ ise:
+pip install tokenizers datasets huggingface_hub
+#   torch 2.3'TEN ESKİ ise (numpy 2 eski torch'u bozar):
+pip install "numpy<2" tokenizers datasets huggingface_hub
+
+
+# 1.3 - testler (30 saniye, 17 satır ✓ basmalı)
+python tests/smoke_test.py
+
+# >>> KONTROL: hepsi ✓ değilse DURDUR, bana yaz.
+
+
+---------------------------------------------------------------
+AŞAMA 2 - TOKENIZER İÇİN ÖRNEK METİN  (~20-30 dk)
+---------------------------------------------------------------
+# Bunlar .bin değil, DÜZ METİN. Tokenizer'ın öğreneceği örnekler.
+# İlk komut birkaç dakika "takılmış gibi" durur - HF veri indiriyor, NORMAL.
+
+mkdir ornek
+
+python prepare_data.py --source fineweb --dump_text ornek/web.txt --target_mb 250
+python prepare_data.py --source wiki --dump_text ornek/wiki.txt --target_mb 150
+python prepare_data.py --source code --dump_text ornek/kod.txt --target_mb 40
+python prepare_data.py --source local --input trcodingdata/dataset --dump_text ornek/kendi.txt --target_mb 50
+
+# NOT: "code" kaynağı gated olabilir. Hata alırsan:
+#   huggingface-cli login
+# ve HF'de bigcode/the-stack-smol sayfasında şartları kabul et.
+# Yine olmazsa kod payını atla, 2. aşamaya kod.txt olmadan devam et.
+
+
+---------------------------------------------------------------
+AŞAMA 3 - TOKENIZER EĞİT  (~15 dk)   *** TEK YÖNLÜ KARAR ***
+---------------------------------------------------------------
+# Oranlar final karışımla aynı olmalı - sebebi bu.
+
+python train_tokenizer.py --out tokenizer.json --vocab 32768 --budget_mb 500 --input "ornek/web.txt:0.55,ornek/wiki.txt:0.25,ornek/kendi.txt:0.12,ornek/kod.txt:0.08"
+
+# Script sonunda EOS id yazdıracak (muhtemelen 0). NOT AL.
+
+python check_tokenizer.py tokenizer.json
+
+# >>> KONTROL: Türkçe ortalama >= 3.6 byte/token olmalı.
+#     Çıkmazsa DURDUR, bana yaz. Buradan sonrası geri dönülmez.
+
+
+---------------------------------------------------------------
+AŞAMA 4 - ASIL VERİ -> .bin  (saatler, gece çalıştır)
+---------------------------------------------------------------
+# Ctrl+C yersen AYNI komutla kaldığı yerden devam eder.
+# Küçükler önce (dakikalar), fineweb sona (saatler).
+# eos_id'yi AŞAMA 3'teki sayıyla değiştir.
+
+mkdir data
+
+python prepare_data.py --source wiki --target 5e6 --out data/val.bin --tokenizer tokenizer.json --eos_id 0
+python prepare_data.py --source wiki --target 1e9 --out data/wiki.bin --tokenizer tokenizer.json --eos_id 0
+python prepare_data.py --source code --target 8e8 --out data/code.bin --tokenizer tokenizer.json --eos_id 0
+python prepare_data.py --source local --input trcodingdata/dataset --target 1e8 --out data/kendi.bin --tokenizer tokenizer.json --eos_id 0
+python prepare_data.py --source fineweb --target 7e9 --out data/fineweb.bin --tokenizer tokenizer.json --eos_id 0
+
+# val.bin'e ASLA eğitim yapma - tek referans noktan o.
+
+
+---------------------------------------------------------------
+AŞAMA 5 - ÖLÇ  (2 dk)
+---------------------------------------------------------------
+python train.py --preset m290 --vocab_size 32768 --train_bin data/wiki.bin --bench
+
+# Gerçek tok/s ve her boyut için kaç hafta sürdüğünü basar.
+# >>> ÇIKTIYI BANA AT - boyut kararını birlikte verelim.
+
+
+---------------------------------------------------------------
+AŞAMA 6 - EĞİTİMİ BAŞLAT
+---------------------------------------------------------------
+python train.py --preset m290 --vocab_size 32768 --micro_bs 4 --grad_accum 32 --train_bin "data/fineweb.bin:0.65,data/wiki.bin:0.27,data/code.bin:0.08" --val_bin data/val.bin --total_tokens 9e9 --out_dir checkpoints
+
+# DİKKAT: kendi.bin karışımda YOK (45K token, %12 pay verirsek model onu
+# 24.000 kez görür = ezberler). Onun yeri eğitimin sonundaki decay fazı.
+# Başlarken "[karışım] ... epoch" tablosunu basacak - hiçbiri 6'yı geçmemeli.
+
+# OOM alırsan:  --micro_bs 2 --grad_accum 64   (çarpım 128 sabit kalsın)
+
+
+---------------------------------------------------------------
+GÜRÜLTÜ (ablan için) - eğitim başladıktan sonra
+---------------------------------------------------------------
+# Linux:
+sudo nvidia-smi -pm 1
+sudo nvidia-smi -pl 130
+# Windows: MSI Afterburner -> Power Limit %65 + custom fan curve
+# Ampere'de %65 güç = performansın ~%90'ı, gürültü belirgin düşer.
+
+
+---------------------------------------------------------------
+DEVAM ETTİRME (crash, yeniden başlatma, başka makine)
+---------------------------------------------------------------
+# Aynı komutu tekrar çalıştır, --resume auto varsayılan.
+# checkpoints/ckpt.pt varsa oradan devam eder, veri sırası bozulmaz.
+
+
+---------------------------------------------------------------
+KONTROL NOKTALARI - buralarda bana yaz
+---------------------------------------------------------------
+  1.1 çıktısı        -> venv uygun mu
+  1.3 testler        -> 17 ✓ geçti mi
+  3   check_tokenizer -> Türkçe >= 3.6 mı
+  5   bench          -> tok/s kaç, hangi boyut
+  6   ilk 100 adım   -> loss ~10.4'ten düşüyor mu, |g| makul mü
