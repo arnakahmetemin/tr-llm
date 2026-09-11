@@ -3,12 +3,14 @@ chcp 65001 >nul
 setlocal
 
 REM ===================================================================
-REM  Venv python'u burada ayarla. Bos birakirsan PATH'teki python'u
-REM  kullanir -- venv AKTIF degilse "No module named tokenizers" hatasi
-REM  alirsin. O zaman asagiya venv'in python.exe yolunu yaz, ornegin:
-REM  set PY=C:\Users\ahmet\nex1\Scripts\python.exe
+REM  Python yolu venv.txt dosyasindan okunur (varsa).
+REM  Olusturmak icin, VENV AKTIF terminalde tek komut:
+REM      where python > venv.txt
+REM  Bu dosya .gitignore'da, git pull ile catismaz.
 REM ===================================================================
 set PY=python
+if exist venv.txt for /f "usebackq delims=" %%i in ("venv.txt") do (set PY=%%i& goto :havepy)
+:havepy
 
 echo ============================================
 echo   VERI HAZIRLAMA

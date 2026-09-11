@@ -6,6 +6,9 @@ checkpoints/
 *.bin.*
 *.progress.json
 
+# yerel makineye ozel
+venv.txt
+
 # python
 __pycache__/
 *.pyc
