@@ -6,15 +6,19 @@
 #  ONCE KAGGLE'DA:
 #   1) Add-ons -> Secrets -> HF_TOKEN ekle (huggingface.co/settings/tokens,
 #      "write" yetkili)
-#   2) tokenizer.json'u Kaggle Dataset olarak yukle (Datasets -> New Dataset),
-#      adi "tr-tokenizer" olsun, sonra bu notebook'a input olarak ekle
+#   2) tokenizer.json: IKI YOLDAN BIRI
+#      (a) TAVSIYE: huggingface.co/new-dataset ile Ahmetemiiii2/tr-corpus repo'sunu
+#          ac, tokenizer.json'u web arayuzunden surukleyip birak. Notebook
+#          otomatik oradan ceker. Colab da ayni yerden alir, yedegi de olur.
+#      (b) Ya da Kaggle Dataset olarak yukle (adi "tr-tokenizer") ve bu
+#          notebook'a input olarak ekle.
 #   3) Settings -> Internet: ON
 # ============================================================
 import os, subprocess, sys
 
 HF_USER  = "Ahmetemiiii2"
 DATA_REPO = f"{HF_USER}/tr-corpus"
-TOK = "/kaggle/input/tr-tokenizer/tokenizer.json"
+TOK = None      # asagida otomatik bulunuyor
 WORK = "/kaggle/working"
 
 # --- bu notebook'ta hangisini uretecegiz? ---
@@ -28,9 +32,25 @@ os.chdir("/kaggle/working/tr-llm")
 
 from kaggle_secrets import UserSecretsClient
 os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
-from huggingface_hub import HfApi, create_repo
+from huggingface_hub import HfApi, create_repo, hf_hub_download
 api = HfApi()
 create_repo(DATA_REPO, repo_type="dataset", exist_ok=True, private=True)
+
+# --- tokenizer'i bul: once HF, sonra Kaggle Dataset ---
+try:
+    TOK = hf_hub_download(DATA_REPO, "tokenizer.json", repo_type="dataset",
+                          local_dir=WORK)
+    print(f">> tokenizer HF'ten alindi: {TOK}")
+except Exception as e:
+    import glob
+    hit = glob.glob("/kaggle/input/*/tokenizer.json")
+    if not hit:
+        raise SystemExit(
+            "tokenizer.json bulunamadi!\n"
+            f"  * HF'e yukle: huggingface.co/datasets/{DATA_REPO} -> Files -> Add file\n"
+            "  * ya da Kaggle Dataset olarak yukleyip bu notebook'a input ekle")
+    TOK = hit[0]
+    print(f">> tokenizer Kaggle input'tan alindi: {TOK}")
 
 
 def uret(source, target, out, extra=""):
