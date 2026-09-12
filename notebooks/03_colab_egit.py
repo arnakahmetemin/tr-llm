@@ -45,6 +45,7 @@ cmd = f"""python train.py \
   --val_bin {D}/val.bin \
   --total_tokens 5e9 \
   --out_dir checkpoints \
+  --max_hours 11 \
   --hub_repo {CKPT_REPO}"""
 print(">>", cmd, flush=True)
 subprocess.run(cmd, shell=True)

@@ -20,8 +20,13 @@ def _newton_schulz(G: torch.Tensor, steps: int = 5, eps: float = 1e-7) -> torch.
     assert G.ndim == 2
     a, b, c = 3.4445, -4.7750, 2.0315
 
-    work_dtype = torch.bfloat16 if G.is_cuda and torch.cuda.is_bf16_supported() \
-        else torch.float32
+    dev = G.device.type
+    if dev == "xla":                      # TPU: bf16 yerli, tercih edilir
+        work_dtype = torch.bfloat16
+    elif dev == "cuda" and torch.cuda.is_bf16_supported():
+        work_dtype = torch.bfloat16
+    else:                                 # T4 (Turing) ve CPU: bf16 yok
+        work_dtype = torch.float32
     X = G.to(work_dtype)
     X = X / (X.norm() + eps)
 

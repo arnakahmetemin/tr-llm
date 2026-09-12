@@ -83,6 +83,10 @@ def main():
     ap.add_argument("--resume", default="auto", help="auto | yol | none")
     ap.add_argument("--hub_repo", default="")
     ap.add_argument("--bench", action="store_true", help="60 adım ölç, süre tahmin et, çık")
+    ap.add_argument("--max_hours", type=float, default=0,
+                    help="bu süre dolunca kaydedip TEMİZ çık. Kaggle GPU 12sa, "
+                         "TPU 9sa, Colab belirsiz -> 11.5 / 8.5 gibi ver ki "
+                         "oturum öldürülmeden önce son checkpoint yazılsın")
     ap.add_argument("--no_grad_ckpt", action="store_true")
     args = ap.parse_args()
 
@@ -235,6 +239,13 @@ def main():
                 f"MFU ~%{mfu:.0f} | VRAM {vram:.1f}G | {tokens_seen/1e9:.3f}B | "
                 f"kalan ~{rem:.0f}sa")
 
+        # --- oturum limiti: öldürülmeden önce kendi ayağımızla çıkalım ---
+        if args.max_hours and (time.time() - t0) > args.max_hours * 3600:
+            log(f"\n[süre] {args.max_hours} saat doldu, kaydedip çıkılıyor "
+                f"(adım {step+1:,})")
+            t_ckpt = 0          # bir sonraki kontrolde kayıt zorunlu olsun
+            n_steps = step + 1
+
         if val_ds is not None and step > 0 and step % tc.eval_every == 0:
             log(f"  >> val loss {evaluate(val_ds, tc.eval_iters):.4f}")
 
@@ -255,6 +266,9 @@ def main():
             log(f"  [ckpt] adım {step+1:,} kaydedildi "
                 f"({os.path.getsize(ckpt_path)/1e9:.2f}GB)")
 
+            if args.max_hours and (time.time() - t0) > args.max_hours * 3600:
+                t_hub = 0        # süre dolduysa Hub'a MUTLAKA yolla
+
             if tc.hub_repo and time.time() - t_hub > tc.hub_every_min * 60:
                 t_hub = time.time()
                 try:
@@ -265,6 +279,9 @@ def main():
                     log(f"  [hub] {tc.hub_repo} güncellendi")
                 except Exception as e:
                     log(f"  [hub] HATA (eğitim devam ediyor): {e}")
+
+        if args.max_hours and (time.time() - t0) > args.max_hours * 3600:
+            break
 
     # ---- bench özeti ----
     if args.bench and is_master():
