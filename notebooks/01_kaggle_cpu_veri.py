@@ -24,11 +24,12 @@ WORK = "/kaggle/working"
 # --- bu notebook'ta hangisini uretecegiz? ---
 # /kaggle/working 20GB sinirli, fineweb 14GB.
 # Bu yuzden IKI AYRI CALISTIRMA yap: once "wiki", sonra "fineweb".
-HEDEF = "wiki"          # <-- ikinci calistirmada "fineweb" yap
+HEDEF = sys.argv[1] if len(sys.argv) > 1 else "wiki"
+assert HEDEF in ("wiki", "fineweb"), "kullanim: python 01_...py wiki|fineweb"
 
 subprocess.run("pip install -q tokenizers datasets huggingface_hub", shell=True)
-subprocess.run("git clone -q https://github.com/arnakahmetemin/tr-llm.git", shell=True)
-os.chdir("/kaggle/working/tr-llm")
+# repo zaten klonlanmis halde calistiriliyor -> kok dizine gec
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from kaggle_secrets import UserSecretsClient
 os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
